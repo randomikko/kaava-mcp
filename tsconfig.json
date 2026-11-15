@@ -8,8 +8,10 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowJs": true,
     "noEmit": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src", "test", "tsdown.config.ts"]
+  "include": ["src", "test", "styles", "tsdown.config.ts"]
 }

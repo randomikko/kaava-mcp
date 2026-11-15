@@ -4,7 +4,7 @@ import { auditAccessibility, checkContrast, nearestPassing } from '../src/a11y.j
 import { auditContrast } from '../src/audit.js';
 import { apca, parseColor, ramp, RAMP_STEPS, wcag } from '../src/engine/color.js';
 import { buildSystem, layersOf, resolveLayers } from '../src/engine/resolve.js';
-import { PRESET_NAMES } from '../src/presets.js';
+import { getStyle, parseStyle, styles, STYLE_IDS } from '../src/style.js';
 import { cssValue, resolveToken, type ColorValue } from '../src/tokens.js';
 import { VERSION } from '../src/version.js';
 
@@ -35,7 +35,7 @@ describe('color engine', () => {
 
   it('builds ramps that get strictly darker and stay in sRGB', () => {
     for (const hue of [0, 75, 150, 245, 300]) {
-      const r = ramp(hue, 0.3);
+      const r = ramp(hue, 0.3, getStyle().color);
       const lightness = RAMP_STEPS.map((s) => r[s].components[0]);
       for (let i = 1; i < lightness.length; i++) expect(lightness[i]!).toBeLessThan(lightness[i - 1]!);
       for (const s of RAMP_STEPS) expect(r[s].hex).toMatch(/^#[0-9a-f]{6}$/);
@@ -53,7 +53,7 @@ describe('color engine', () => {
 
 describe('system resolution', () => {
   it('is deterministic', () => {
-    const brief = { brandColor: '#4f46e5', mood: 'friendly' as const, name: 'Demo' };
+    const brief = { brandColor: '#4f46e5', style: 'friendly' as const, name: 'Demo' };
     expect(JSON.stringify(buildSystem(brief))).toBe(JSON.stringify(buildSystem(brief)));
   });
 
@@ -63,12 +63,12 @@ describe('system resolution', () => {
     expect(layersOf(reread)).toEqual(resolveLayers({ brandColor: '#0ea5e9' }));
   });
 
-  it(`passes WCAG AA for every promised pair across ${BRANDS.length} brand colors and all moods`, () => {
+  it(`passes WCAG AA for every promised pair across ${BRANDS.length} brand colors and all ${styles().length} styles`, () => {
     const failures: string[] = [];
     for (const brandColor of BRANDS) {
-      for (const mood of [undefined, ...PRESET_NAMES]) {
-        for (const r of auditContrast(resolveLayers({ brandColor, mood }))) {
-          if (!r.pass) failures.push(`${brandColor} ${mood ?? 'default'} [${r.mode}] ${r.fg} on ${r.bg}: ${r.ratio}`);
+      for (const style of [undefined, ...STYLE_IDS]) {
+        for (const r of auditContrast(resolveLayers({ brandColor, style }))) {
+          if (!r.pass) failures.push(`${brandColor} ${style ?? 'default'} [${r.mode}] ${r.fg} on ${r.bg}: ${r.ratio}`);
         }
       }
     }
@@ -81,8 +81,8 @@ describe('system resolution', () => {
     expect(primary.hex).toBe('#e11d48');
   });
 
-  it('lets explicit brief fields win over the mood', () => {
-    const layers = resolveLayers({ brandColor: '#333', mood: 'playful', radius: 'none' });
+  it('lets explicit brief fields win over the style', () => {
+    const layers = resolveLayers({ brandColor: '#333', style: 'playful', radius: 'none' });
     expect(cssValue(resolveToken('radius.control', [layers.base]), (p) => p)).toBe('0');
   });
 
@@ -124,7 +124,7 @@ describe('overrides', () => {
   it('rejects unknown paths, wrong types and bad values', () => {
     expect(() => resolveLayers(brief, { 'color.nope': '#fff' })).toThrow(/no such token/);
     expect(() => resolveLayers(brief, { 'radius.control': '{palette.white}' })).toThrow(/color token, not dimension/);
-    expect(() => resolveLayers(brief, { 'font.size.base': 'big' })).toThrow(/px or rem/);
+    expect(() => resolveLayers(brief, { 'font.size.base': 'big' })).toThrow(/px, rem or em/);
     expect(() => resolveLayers(brief, { 'light:radius.md': '4px' })).toThrow(/not mode-specific/);
   });
 

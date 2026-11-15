@@ -14,11 +14,11 @@ export interface ContrastResult {
   pass: boolean;
 }
 
-const SURFACES = ['bg', 'surface', 'surface-muted'];
-const SOLID_ROLES = ['primary', 'accent', 'success', 'warning', 'danger', 'info'];
+export const SURFACES = ['bg', 'surface', 'surface-muted'] as const;
+export const SOLID_ROLES = ['primary', 'accent', 'success', 'warning', 'danger', 'info'] as const;
 
 /** Every foreground/background pairing the system promises is usable, with its WCAG 2.2 minimum. */
-function pairs(): [fg: string, bg: string, min: number][] {
+export function contrastPairs(): [fg: string, bg: string, min: number][] {
   const out: [string, string, number][] = [];
   for (const s of SURFACES) {
     out.push(['fg', s, 4.5], ['fg-muted', s, 4.5]);
@@ -44,7 +44,7 @@ export function auditContrast(layers: Layers): ContrastResult[] {
     const scope = [layers.base, layer];
     const hex = (role: string): string | undefined =>
       layer.has(`color.${role}`) ? (resolveToken(`color.${role}`, scope).$value as ColorValue).hex : undefined;
-    for (const [fg, bg, min] of pairs()) {
+    for (const [fg, bg, min] of contrastPairs()) {
       const fgHex = hex(fg);
       const bgHex = hex(bg);
       if (!fgHex || !bgHex) continue;

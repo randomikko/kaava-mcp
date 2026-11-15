@@ -18,7 +18,7 @@ export interface ColorValue {
 }
 export interface Dimension {
   value: number;
-  unit: 'px' | 'rem';
+  unit: 'px' | 'rem' | 'em';
 }
 export interface Duration {
   value: number;

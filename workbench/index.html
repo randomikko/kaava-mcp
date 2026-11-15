@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaava workbench</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header class="top">
+  <strong class="brand">Kaava <span>workbench</span></strong>
+  <label class="pick">Style <select id="style-select"></select></label>
+  <button type="button" id="duplicate">Duplicate</button>
+  <span class="spacer"></span>
+  <span id="status" role="status"></span>
+  <button type="button" id="revert">Revert</button>
+  <button type="button" id="save" class="primary">Save</button>
+</header>
+
+<aside class="controls" id="controls" aria-label="Style controls"></aside>
+
+<main class="stage">
+  <div class="stagebar">
+    <div class="brands" id="brands" role="group" aria-label="Brand color to preview with"></div>
+    <label class="custom">Custom <input type="color" id="brand-custom" value="#0f766e"></label>
+    <span class="spacer"></span>
+    <div class="seg" role="group" aria-label="Theme">
+      <button type="button" data-theme="light" aria-pressed="true">Light</button>
+      <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+  <iframe id="preview" title="Live preview of the style"></iframe>
+</main>
+
+<footer class="audit" id="audit" aria-live="polite"></footer>
+<datalist id="google-fonts"></datalist>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

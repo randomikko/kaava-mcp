@@ -43,12 +43,12 @@ describe('kaava MCP server', () => {
       'kaava_get_tokens',
       'kaava_update_system',
     ]);
-    expect((await client.listResources()).resources.map((r) => r.uri).sort()).toEqual(['kaava://presets', 'kaava://system']);
+    expect((await client.listResources()).resources.map((r) => r.uri).sort()).toEqual(['kaava://styles', 'kaava://system']);
     expect((await client.listPrompts()).prompts.map((p) => p.name)).toEqual(['new-design-system']);
   });
 
   it('creates, emits, updates and audits a system end to end', async () => {
-    const created = await call('kaava_create_system', { name: 'Acme', brandColor: '#4f46e5', mood: 'friendly' });
+    const created = await call('kaava_create_system', { name: 'Acme', brandColor: '#4f46e5', style: 'friendly' });
     expect(created.isError).toBe(false);
     expect(created.text).toContain('pass WCAG 2.2 AA');
     expect(JSON.parse(await read('kaava.json')).name).toBe('Acme');
@@ -69,7 +69,7 @@ describe('kaava MCP server', () => {
     expect(css).toContain('--color-brand-primary: #059669;');
     expect(css).toContain('--radius-control: var(--radius-full);');
     const saved = JSON.parse(await read('kaava.json'));
-    expect(saved.brief).toMatchObject({ name: 'Acme', mood: 'friendly', brandColor: '#059669' });
+    expect(saved.brief).toMatchObject({ name: 'Acme', style: 'friendly', brandColor: '#059669' });
     expect(saved.emit).toEqual({ outDir: 'src/styles', targets: ['css', 'design-md'] });
 
     const tokens = await call('kaava_get_tokens', { path: 'color.primary' });

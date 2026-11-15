@@ -5,6 +5,6 @@ export { renderTargets, type EmittedFile } from './emit/index.js';
 export { auditContrast, type ContrastResult } from './audit.js';
 export { auditAccessibility, checkContrast, nearestPassing, type ContrastCheck, type Finding } from './a11y.js';
 export { briefSchema, EMIT_TARGETS, type Brief, type EmitTarget } from './schema.js';
-export { PRESETS, type PresetName } from './presets.js';
+export { getStyle, parseStyle, registerStyle, styles, styleSchema, type Style, type StyleId } from './style.js';
 export type { Token, TokenGroup, TokenType } from './tokens.js';
 export { VERSION } from './version.js';

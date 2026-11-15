@@ -23,6 +23,10 @@
     "dev": "tsdown --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "workbench": "npm run build && tsdown --config tsdown.workbench.config.ts && node scripts/workbench.mjs",
+    "styles": "node scripts/styles-index.mjs",
+    "fonts": "node scripts/google-fonts.mjs",
+    "examples": "npm run build && node scripts/examples.mjs",
     "inspect": "npx @modelcontextprotocol/inspector node dist/index.mjs",
     "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
@@ -53,6 +57,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@google/design.md": "^0.4.0",
     "@types/culori": "^4.0.1",
     "@types/node": "^26.6.6",
     "tsdown": "^0.22.14",

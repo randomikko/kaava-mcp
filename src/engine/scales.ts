@@ -1,3 +1,4 @@
+import { SHADOW_LEVELS, SPACE_STEPS, TYPE_STEPS, type DensitySpec, type Style } from '../style.js';
 import { alias, type ColorValue, type Dimension, type Flat, type ShadowLayer } from '../tokens.js';
 
 const rem = (px: number): Dimension => ({ value: Number((px / 16).toFixed(4)), unit: 'rem' });
@@ -15,62 +16,39 @@ export function fontStack(value: string | undefined, fallback: string[]): string
   return value.includes(',') ? names : [...names, ...fallback.filter((f) => f !== names[0])];
 }
 
-const TYPE_STEPS: [name: string, exponent: number, lineHeight: number][] = [
-  ['xs', -2, 1.5],
-  ['sm', -1, 1.5],
-  ['base', 0, 1.5],
-  ['lg', 1, 1.5],
-  ['xl', 2, 1.4],
-  ['2xl', 3, 1.3],
-  ['3xl', 4, 1.25],
-  ['4xl', 5, 1.15],
-  ['5xl', 6, 1.1],
-];
-
-export function typeTokens(
-  out: Flat,
-  opts: { ratio: number; fonts: { sans?: string; mono?: string; display?: string } },
-): void {
-  out.set('font.family.sans', { $type: 'fontFamily', $value: fontStack(opts.fonts.sans, SANS_FALLBACK) });
-  out.set('font.family.mono', { $type: 'fontFamily', $value: fontStack(opts.fonts.mono, MONO_FALLBACK) });
-  out.set('font.family.display', {
-    $type: 'fontFamily',
-    $value: opts.fonts.display ? fontStack(opts.fonts.display, SANS_FALLBACK) : alias('font.family.sans'),
-    $description: 'Headings.',
-  });
-  for (const [name, exp] of TYPE_STEPS) {
-    // Never go below 11px, however tight the ratio.
-    const size = Math.max(0.6875, opts.ratio ** exp);
-    out.set(`font.size.${name}`, { $type: 'dimension', $value: { value: Number(size.toFixed(3)), unit: 'rem' } });
-  }
-  for (const [name, , lineHeight] of TYPE_STEPS) {
-    out.set(`font.lineHeight.${name}`, { $type: 'number', $value: lineHeight });
-  }
-  for (const [name, weight] of [
-    ['regular', 400],
-    ['medium', 500],
-    ['semibold', 600],
-    ['bold', 700],
-  ] as const) {
-    out.set(`font.weight.${name}`, { $type: 'fontWeight', $value: weight });
-  }
+/** Type sizes in rem for xs…5xl: hand-set, or a modular scale around 1rem that never drops below 11px. */
+export function typeSizes(scale: Style['type']['scale']): number[] {
+  if ('sizes' in scale) return scale.sizes;
+  return TYPE_STEPS.map((_, i) => Number(Math.max(0.6875, scale.ratio ** (i - 2)).toFixed(3)));
 }
 
-export const SPACE_STEPS = [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24] as const;
+export function typeTokens(out: Flat, type: Style['type']): void {
+  out.set('font.family.sans', { $type: 'fontFamily', $value: fontStack(type.families.sans, SANS_FALLBACK) });
+  out.set('font.family.mono', { $type: 'fontFamily', $value: fontStack(type.families.mono, MONO_FALLBACK) });
+  out.set('font.family.display', {
+    $type: 'fontFamily',
+    $value: type.families.display ? fontStack(type.families.display, SANS_FALLBACK) : alias('font.family.sans'),
+    $description: 'Headings.',
+  });
+  const sizes = typeSizes(type.scale);
+  TYPE_STEPS.forEach((name, i) => out.set(`font.size.${name}`, { $type: 'dimension', $value: { value: sizes[i]!, unit: 'rem' } }));
+  TYPE_STEPS.forEach((name, i) => out.set(`font.lineHeight.${name}`, { $type: 'number', $value: type.lineHeights[i]! }));
+  TYPE_STEPS.forEach((name, i) =>
+    out.set(`font.tracking.${name}`, { $type: 'dimension', $value: { value: type.tracking[i]!, unit: 'em' }, ...(i === 0 ? { $description: 'Letter-spacing for each font size.' } : {}) }),
+  );
+  for (const name of ['regular', 'medium', 'semibold', 'bold'] as const) {
+    out.set(`font.weight.${name}`, { $type: 'fontWeight', $value: type.weights[name] });
+  }
+  out.set('font.weight.heading', { $type: 'fontWeight', $value: alias(`font.weight.${type.headingWeight}`), $description: 'Headings.' });
+}
+
 /** One spacing unit, in px. `space.N` is N units. */
 export const SPACE_UNIT = 4;
 
-const DENSITY = {
-  compact: { control: [28, 32, 40], padX: 3, gap: 2, inset: 4, section: 8 },
-  comfortable: { control: [32, 40, 48], padX: 4, gap: 3, inset: 6, section: 12 },
-  spacious: { control: [36, 44, 56], padX: 5, gap: 4, inset: 8, section: 16 },
-} as const;
-
-export function spaceTokens(out: Flat, density: keyof typeof DENSITY): void {
+export function spaceTokens(out: Flat, d: DensitySpec): void {
   for (const step of SPACE_STEPS) {
     out.set(`space.${step}`, { $type: 'dimension', $value: rem(step * SPACE_UNIT) });
   }
-  const d = DENSITY[density];
   const semantic: [string, number, string][] = [
     ['control', d.padX, 'Horizontal padding inside buttons and inputs.'],
     ['gap', d.gap, 'Default gap between related elements.'],
@@ -78,7 +56,9 @@ export function spaceTokens(out: Flat, density: keyof typeof DENSITY): void {
     ['section', d.section, 'Vertical distance between page sections.'],
   ];
   for (const [name, step, description] of semantic) {
-    out.set(`space.${name}`, { $type: 'dimension', $value: alias(`space.${step}`), $description: description });
+    // A style may ask for a step the scale does not have; use the nearest one that exists.
+    const nearest = SPACE_STEPS.reduce((a, b) => (Math.abs(b - step) < Math.abs(a - step) ? b : a));
+    out.set(`space.${name}`, { $type: 'dimension', $value: alias(`space.${nearest}`), $description: description });
   }
   (['sm', 'md', 'lg'] as const).forEach((name, i) => {
     out.set(`size.control.${name}`, {
@@ -89,53 +69,18 @@ export function spaceTokens(out: Flat, density: keyof typeof DENSITY): void {
   });
 }
 
-const RADIUS_BASE = { none: 0, sm: 4, md: 8, lg: 12, full: 12 } as const;
-
-export function radiusTokens(out: Flat, radius: keyof typeof RADIUS_BASE): void {
-  const b = RADIUS_BASE[radius];
+export function shapeTokens(out: Flat, shape: Style['shape']): void {
   out.set('radius.none', { $type: 'dimension', $value: px(0) });
-  out.set('radius.sm', { $type: 'dimension', $value: rem(b / 2) });
-  out.set('radius.md', { $type: 'dimension', $value: rem(b) });
-  out.set('radius.lg', { $type: 'dimension', $value: rem(b * 1.5) });
-  out.set('radius.xl', { $type: 'dimension', $value: rem(b * 2) });
+  for (const name of ['sm', 'md', 'lg', 'xl'] as const) out.set(`radius.${name}`, { $type: 'dimension', $value: rem(shape.radius[name]) });
   out.set('radius.full', { $type: 'dimension', $value: px(9999) });
-  out.set('radius.control', {
-    $type: 'dimension',
-    $value: alias(radius === 'full' ? 'radius.full' : 'radius.md'),
-    $description: 'Buttons, inputs, badges.',
-  });
-  out.set('radius.surface', {
-    $type: 'dimension',
-    $value: alias('radius.lg'),
-    $description: 'Cards, dialogs, popovers.',
-  });
+  out.set('radius.control', { $type: 'dimension', $value: alias(`radius.${shape.control}`), $description: 'Buttons, inputs, badges.' });
+  out.set('radius.surface', { $type: 'dimension', $value: alias(`radius.${shape.surface}`), $description: 'Cards, dialogs, popovers.' });
+  out.set('border.width', { $type: 'dimension', $value: px(shape.borderWidth), $description: 'Borders and outlines.' });
 }
 
-type LayerSpec = [y: number, blur: number, spread: number, alpha: number];
-
-const SHADOW_STYLES: Record<'none' | 'soft' | 'crisp', Record<'sm' | 'md' | 'lg', LayerSpec[]>> = {
-  none: { sm: [[0, 0, 0, 0]], md: [[0, 0, 0, 0]], lg: [[0, 0, 0, 0]] },
-  soft: {
-    sm: [[1, 2, 0, 0.06]],
-    md: [
-      [4, 12, -2, 0.1],
-      [2, 4, -2, 0.06],
-    ],
-    lg: [
-      [12, 32, -4, 0.14],
-      [4, 8, -4, 0.08],
-    ],
-  },
-  crisp: {
-    sm: [[1, 0, 0, 0.08]],
-    md: [[2, 4, 0, 0.14]],
-    lg: [[6, 12, -2, 0.2]],
-  },
-};
-
-export function shadowTokens(out: Flat, style: keyof typeof SHADOW_STYLES, shadowColor: ColorValue): void {
-  for (const level of ['sm', 'md', 'lg'] as const) {
-    const layers: ShadowLayer[] = SHADOW_STYLES[style][level].map(([y, blur, spread, a]) => ({
+export function shadowTokens(out: Flat, elevation: Style['elevation'], shadowColor: ColorValue): void {
+  for (const level of SHADOW_LEVELS) {
+    const layers: ShadowLayer[] = elevation[level].map(([y, blur, spread, a]) => ({
       color: { ...shadowColor, alpha: a },
       offsetX: px(0),
       offsetY: px(y),
@@ -146,15 +91,11 @@ export function shadowTokens(out: Flat, style: keyof typeof SHADOW_STYLES, shado
   }
 }
 
-export function motionTokens(out: Flat): void {
-  for (const [name, ms] of [
-    ['fast', 120],
-    ['base', 200],
-    ['slow', 320],
-  ] as const) {
-    out.set(`duration.${name}`, { $type: 'duration', $value: { value: ms, unit: 'ms' } });
+export function motionTokens(out: Flat, motion: Style['motion']): void {
+  for (const name of ['fast', 'base', 'slow'] as const) {
+    out.set(`duration.${name}`, { $type: 'duration', $value: { value: motion.durations[name], unit: 'ms' } });
   }
-  out.set('ease.standard', { $type: 'cubicBezier', $value: [0.2, 0, 0, 1] });
-  out.set('ease.in', { $type: 'cubicBezier', $value: [0.4, 0, 1, 1] });
-  out.set('ease.out', { $type: 'cubicBezier', $value: [0, 0, 0.2, 1] });
+  for (const name of ['standard', 'in', 'out'] as const) {
+    out.set(`ease.${name}`, { $type: 'cubicBezier', $value: motion.easings[name] });
+  }
 }

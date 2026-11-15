@@ -13,8 +13,7 @@ import {
 import { auditContrast, contrastSummary } from './audit.js';
 import { renderTargets } from './emit/index.js';
 import { cssVar } from './emit/names.js';
-import { buildSystem, layersOf, resolveBrief, type KaavaSystem } from './engine/resolve.js';
-import { DEFAULT_PRESET, PRESETS } from './presets.js';
+import { buildSystem, layersOf, resolveBrief, traits, type KaavaSystem } from './engine/resolve.js';
 import {
   isForeignFile,
   isInside,
@@ -27,11 +26,12 @@ import {
 } from './project.js';
 import { briefSchema, briefShape, EMIT_TARGETS, type Brief, type EmitTarget } from './schema.js';
 import { aliasPath, cssValue, isAlias, resolveToken, type ColorValue, type Flat } from './tokens.js';
+import { DEFAULT_STYLE_ID, styles } from './style.js';
 import { VERSION } from './version.js';
 
 const INSTRUCTIONS = `Kaava generates and maintains a project's design system.
 
-You supply the taste (brand color, mood, density, fonts); Kaava computes the full token set deterministically: OKLCH color ramps, semantic light/dark roles that are contrast-checked, type scale, spacing, radii, shadows, motion.
+You supply the brand color and pick a style; Kaava computes the full token set deterministically: OKLCH color ramps, semantic light/dark roles that are contrast-checked, type scale, spacing, radii, shadows, motion.
 
 Typical flow:
 1. kaava_create_system with a brief -> writes kaava.json (the source of truth) in the project root.
@@ -147,7 +147,7 @@ export function createServer(options: ServerOptions = {}): McpServer {
     {
       title: 'Create design system',
       description:
-        'Generate a complete design system from a short brief and save it as kaava.json in the project root. Only brandColor is required; mood picks sensible defaults for the rest. Returns a summary and a contrast report. Follow with kaava_emit to write tokens for the project stack.',
+        'Generate a complete design system from a short brief and save it as kaava.json in the project root. Only brandColor is required; style picks a hand-authored character for the rest (read kaava://styles for what each one is). Returns a summary and a contrast report. Follow with kaava_emit to write tokens for the project stack.',
       inputSchema: {
         ...briefShape,
         overwrite: z.boolean().optional().describe('Replace an existing kaava.json. Without this, an existing system is left untouched.'),
@@ -285,7 +285,7 @@ export function createServer(options: ServerOptions = {}): McpServer {
     {
       title: 'Emit tokens',
       description:
-        'Write the design system out for the project stack. Targets: "css" (custom properties, works with any framework), "tailwind" (Tailwind v4 @theme), "scss", "ts" (typed token object for React/Vue/Svelte/React Native), "dtcg" (W3C design tokens JSON for Figma/Style Dictionary), "design-md" (DESIGN.md usage rules for agents and people), "preview" (self-contained preview.html showing the system in use, for the user to open in a browser). The choice is remembered, so later kaava_update_system calls regenerate the same files.',
+        'Write the design system out for the project stack. Targets: "css" (custom properties, works with any framework), "tailwind" (Tailwind v4 @theme), "scss", "ts" (typed token object for React/Vue/Svelte/React Native), "dtcg" (W3C design tokens JSON for Figma/Style Dictionary), "design-md" (DESIGN.md in the open DESIGN.md format: tokens as YAML front matter plus usage rules, for agents and people), "preview" (self-contained preview.html showing the system in use, for the user to open in a browser). The choice is remembered, so later kaava_update_system calls regenerate the same files.',
       inputSchema: {
         targets: z.array(z.enum(EMIT_TARGETS)).min(1).describe('Which outputs to write.'),
         outDir: z.string().optional().describe('Directory relative to the project root. Default: the directory used last time, else "kaava".'),
@@ -411,11 +411,11 @@ export function createServer(options: ServerOptions = {}): McpServer {
   );
 
   server.registerResource(
-    'presets',
-    'kaava://presets',
-    { title: 'Mood presets', description: 'The moods accepted by kaava_create_system and the defaults each one sets.', mimeType: 'application/json' },
+    'styles',
+    'kaava://styles',
+    { title: 'Styles', description: 'The styles accepted by kaava_create_system: who authored each one and every decision it makes.', mimeType: 'application/json' },
     async (uri) => ({
-      contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify({ default: DEFAULT_PRESET, moods: PRESETS }, null, 2) }],
+      contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify({ default: DEFAULT_STYLE_ID, styles: styles() }, null, 2) }],
     }),
   );
 
@@ -435,8 +435,9 @@ export function createServer(options: ServerOptions = {}): McpServer {
             text: `Set up a design system for this project with Kaava.${product ? `\n\nThe product: ${product}` : ''}
 
 1. Look at the project first: framework, styling approach (Tailwind version, CSS modules, SCSS, CSS-in-JS), any existing brand colors, fonts or logo assets. Reuse what is already decided.
-2. Ask me only what you cannot infer, in one round: what the product is and who uses it, the brand color (or let me pick from 3 options you propose with hex values), and the feel. Moods available: ${Object.entries(PRESETS)
-              .map(([name, p]) => `${name} (${p.description.split(':')[0]!.toLowerCase()})`)
+2. Ask me only what you cannot infer, in one round: what the product is and who uses it, the brand color (or let me pick from 3 options you propose with hex values), and the feel. Styles available: ${styles()
+              .filter((s) => s.id !== DEFAULT_STYLE_ID)
+              .map((s) => `${s.id} (${s.description.split(':')[0]!.toLowerCase()})`)
               .join(', ')}.
 3. Call kaava_create_system. Read the contrast report; if anything fails, adjust and say what you changed.
 4. Call kaava_emit with the targets that match the stack, always including "design-md".
@@ -462,11 +463,12 @@ function summarize(system: KaavaSystem): string {
     .map(([p, t]) => `${p.split('.')[2]} ${cssValue(t, (q) => q)}`);
   const overrides = Object.keys(system.overrides ?? {});
   return [
-    `"${system.name}"${b.mood ? ` · mood ${b.mood}` : ''} · density ${b.density} · radius ${b.radius} · shadows ${b.shadows} · neutral tint ${b.neutralTint} · ${layers.dark ? 'light + dark' : 'light only'}`,
+    `"${system.name}" · ${traits(b).join(' · ')} · ${layers.dark ? 'light + dark' : 'light only'}`,
+    `Style: ${b.style.name} by ${b.style.author}. ${b.style.description}`,
     '',
     `Colors (light${layers.dark ? ' | dark' : ''}):`,
     ...roles.map((r) => `  ${r.padEnd(13)}${hex(layers.light, r)}${layers.dark ? ` | ${hex(layers.dark, r)}` : ''}`),
-    `Type (ratio ${b.typeScale}): ${sizes.join(', ')}`,
+    `Type: ${sizes.join(', ')}`,
     ...(overrides.length ? [`Overrides: ${overrides.join(', ')}`] : []),
     contrastSummary(auditContrast(layers)),
     `${accessibilitySummary(auditAccessibility(layers))} Details: kaava_audit.`,

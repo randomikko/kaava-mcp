@@ -35,39 +35,18 @@ export const RAMP_STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]
 export type RampStep = (typeof RAMP_STEPS)[number];
 export type Ramp = Record<RampStep, ColorValue>;
 
-/** Fixed perceptual lightness per step, so every hue's ramp is interchangeable step-for-step. */
-const LIGHTNESS: Record<RampStep, number> = {
-  50: 0.975,
-  100: 0.94,
-  200: 0.88,
-  300: 0.8,
-  400: 0.7,
-  500: 0.6,
-  600: 0.52,
-  700: 0.44,
-  800: 0.36,
-  900: 0.28,
-  950: 0.2,
-};
+/** How a style shapes every ramp: OKLCH lightness per step, and the share of peak chroma used at each step. */
+export interface RampCurves {
+  lightness: number[];
+  chroma: number[];
+}
 
-/** Share of peak chroma per step: colorful in the middle, restrained at both ends. */
-const CHROMA: Record<RampStep, number> = {
-  50: 0.12,
-  100: 0.25,
-  200: 0.45,
-  300: 0.7,
-  400: 0.9,
-  500: 1,
-  600: 1,
-  700: 0.9,
-  800: 0.75,
-  900: 0.6,
-  950: 0.45,
-};
-
-export function ramp(hue: number, peakChroma: number): Ramp {
+/** Lightness is the same for every hue, so ramps are interchangeable step-for-step. */
+export function ramp(hue: number, peakChroma: number, curves: RampCurves): Ramp {
   const out = {} as Ramp;
-  for (const step of RAMP_STEPS) out[step] = oklch(LIGHTNESS[step], peakChroma * CHROMA[step], hue);
+  RAMP_STEPS.forEach((step, i) => {
+    out[step] = oklch(curves.lightness[i]!, peakChroma * curves.chroma[i]!, hue);
+  });
   return out;
 }
 

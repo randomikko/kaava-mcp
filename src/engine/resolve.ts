@@ -1,5 +1,5 @@
-import { DEFAULT_PRESET, PRESETS, type Preset } from '../presets.js';
 import { SYSTEM_VERSION, type Brief, type EmitTarget } from '../schema.js';
+import { DEFAULT_STYLE_ID, getStyle, type Style, type SurfaceStep } from '../style.js';
 import {
   alias,
   aliasPath,
@@ -13,7 +13,7 @@ import {
   type TokenValue,
 } from '../tokens.js';
 import { fromHex, oklch, parseColor, ramp, wcag, type Ramp, type RampStep } from './color.js';
-import { motionTokens, radiusTokens, shadowTokens, spaceTokens, typeTokens } from './scales.js';
+import { motionTokens, shadowTokens, shapeTokens, spaceTokens, typeSizes, typeTokens } from './scales.js';
 
 export interface Layers {
   /** Mode-independent tokens: palettes, type, space, radius, shadow, motion. */
@@ -33,40 +33,89 @@ export interface KaavaSystem {
   modes: { light: TokenGroup; dark?: TokenGroup };
 }
 
-export type ResolvedBrief = Required<Omit<Brief, 'accent' | 'mood' | 'description' | 'fonts'>> &
-  Pick<Brief, 'accent' | 'mood' | 'description'> & {
-    fonts: { sans?: string; mono?: string; display?: string };
-    accentShift: number;
-  };
+export interface ResolvedBrief {
+  name: string;
+  description?: string;
+  brandColor: string;
+  accent?: string;
+  /** Id of the style the brief names; `default` when it names none. */
+  styleId: string;
+  /** The style with the brief's own overrides (radius, type scale, fonts, shadows, neutral tint) applied. */
+  style: Style;
+  density: Style['space']['density'];
+  darkMode: boolean;
+}
+
+/** Generic corner scales for a brief that overrides the style's own with `radius`. */
+const RADIUS_OVERRIDE = { none: 0, sm: 4, md: 8, lg: 12, full: 12 } as const;
+/** Generic shadow recipes for a brief that overrides the style's own with `shadows`. */
+const SHADOW_OVERRIDE: Record<'none' | 'soft' | 'crisp', Style['elevation']> = {
+  none: { sm: [[0, 0, 0, 0]], md: [[0, 0, 0, 0]], lg: [[0, 0, 0, 0]] },
+  soft: {
+    sm: [[1, 2, 0, 0.06]],
+    md: [
+      [4, 12, -2, 0.1],
+      [2, 4, -2, 0.06],
+    ],
+    lg: [
+      [12, 32, -4, 0.14],
+      [4, 8, -4, 0.08],
+    ],
+  },
+  crisp: { sm: [[1, 0, 0, 0.08]], md: [[2, 4, 0, 0.14]], lg: [[6, 12, -2, 0.2]] },
+};
 
 export function resolveBrief(brief: Brief): ResolvedBrief {
-  const preset: Preset = brief.mood ? PRESETS[brief.mood] : DEFAULT_PRESET;
+  const authored = getStyle(brief.style ?? DEFAULT_STYLE_ID);
+  const style: Style = structuredClone(authored);
+  if (brief.neutralTint !== undefined) style.color.neutralTint = brief.neutralTint;
+  if (brief.radius) {
+    const base = RADIUS_OVERRIDE[brief.radius];
+    style.shape = { ...style.shape, radius: { sm: base / 2, md: base, lg: base * 1.5, xl: base * 2 }, control: brief.radius === 'full' ? 'full' : 'md', surface: 'lg' };
+  }
+  if (brief.typeScale !== undefined) style.type.scale = { ratio: brief.typeScale };
+  if (brief.shadows) style.elevation = SHADOW_OVERRIDE[brief.shadows];
+  if (brief.fonts && Object.values(brief.fonts).some(Boolean)) {
+    style.type.families = { ...style.type.families, ...brief.fonts };
+    // The style's webfonts no longer describe the families in use.
+    style.type.webfonts = [];
+  }
   return {
     name: brief.name ?? 'Design system',
     description: brief.description,
     brandColor: brief.brandColor,
     accent: brief.accent,
-    mood: brief.mood,
-    neutralTint: brief.neutralTint ?? preset.neutralTint,
-    density: brief.density ?? preset.density,
-    radius: brief.radius ?? preset.radius,
-    typeScale: brief.typeScale ?? preset.typeScale,
-    fonts: { ...preset.fonts, ...brief.fonts },
-    shadows: brief.shadows ?? preset.shadows,
+    styleId: authored.id,
+    style,
+    density: brief.density ?? style.space.density,
     darkMode: brief.darkMode ?? true,
-    accentShift: preset.accentShift,
   };
 }
 
-const STATUS = {
-  success: { hue: 150, chroma: 0.16, solid: { light: 600, dark: 400 } },
-  warning: { hue: 75, chroma: 0.16, solid: { light: 400, dark: 400 } },
-  danger: { hue: 25, chroma: 0.19, solid: { light: 600, dark: 400 } },
-  info: { hue: 245, chroma: 0.15, solid: { light: 600, dark: 400 } },
-} as const satisfies Record<string, { hue: number; chroma: number; solid: Record<Mode, RampStep> }>;
+/** Short labels describing a resolved system, for summaries, DESIGN.md and the preview. */
+export function traits(b: ResolvedBrief): string[] {
+  const { style } = b;
+  const controlRadius = style.shape.control === 'full' ? 'pill controls' : `radius ${style.shape.control === 'none' ? 0 : style.shape.radius[style.shape.control]}px`;
+  const flat = Object.values(style.elevation).every((layers) => layers.every((layer) => layer[3] === 0));
+  return [
+    b.styleId === DEFAULT_STYLE_ID ? 'default style' : `${style.name} style`,
+    b.density,
+    controlRadius,
+    'ratio' in style.type.scale ? `type scale ${style.type.scale.ratio}` : `hand-set type (${typeSizes(style.type.scale)[2]}rem base)`,
+    flat ? 'flat' : 'shadows',
+  ];
+}
+
+/** Light fills use a darker solid step than dark-mode fills; warning stays light so it reads as amber, not brown. */
+const STATUS_SOLID = {
+  success: { light: 600, dark: 400 },
+  warning: { light: 400, dark: 400 },
+  danger: { light: 600, dark: 400 },
+  info: { light: 600, dark: 400 },
+} as const satisfies Record<string, Record<Mode, RampStep>>;
 
 type Mode = 'light' | 'dark';
-type PaletteName = 'neutral' | 'primary' | 'accent' | keyof typeof STATUS;
+type PaletteName = 'neutral' | 'primary' | 'accent' | keyof typeof STATUS_SOLID;
 
 const color = ($value: TokenValue, $description?: string): Token => ({
   $type: 'color',
@@ -74,7 +123,12 @@ const color = ($value: TokenValue, $description?: string): Token => ({
   ...($description ? { $description } : {}),
 });
 
-function semanticColors(mode: Mode, palettes: Record<PaletteName, Ramp>, brand: Record<'primary' | 'accent', ColorValue>): Flat {
+function semanticColors(
+  mode: Mode,
+  palettes: Record<PaletteName, Ramp>,
+  brand: Record<'primary' | 'accent', ColorValue>,
+  surfaceSteps: Style['color']['surfaces'][Mode],
+): Flat {
   const out: Flat = new Map();
   const light = mode === 'light';
   const ref = (name: PaletteName, step: RampStep) => ({ value: alias(`palette.${name}.${step}`), hex: palettes[name][step].hex });
@@ -97,9 +151,10 @@ function semanticColors(mode: Mode, palettes: Record<PaletteName, Ramp>, brand: 
     return wcag(WHITE.hex, bg) >= wcag(BLACK.hex, bg) ? WHITE : BLACK;
   };
 
-  const bg = light ? ref('neutral', 50) : ref('neutral', 950);
-  const surface = light ? WHITE : ref('neutral', 900);
-  const surfaceMuted = light ? ref('neutral', 100) : ref('neutral', 800);
+  const at = (step: SurfaceStep) => (step === 'white' ? WHITE : step === 'black' ? BLACK : ref('neutral', step));
+  const bg = at(surfaceSteps.bg);
+  const surface = at(surfaceSteps.surface);
+  const surfaceMuted = at(surfaceSteps.muted);
   const surfaces = [bg.hex, surface.hex, surfaceMuted.hex];
   const textSteps: RampStep[] = light ? [600, 700, 800, 900, 950] : [400, 300, 200, 100, 50];
   const subtleTextSteps: RampStep[] = light ? [700, 800, 900, 950] : [200, 100, 50];
@@ -151,8 +206,8 @@ function semanticColors(mode: Mode, palettes: Record<PaletteName, Ramp>, brand: 
       solidRole(role, role, ref(role, 400), step.components[0], step.components[1], step.components[2], role === 'primary' ? 'Brand' : 'Accent');
     }
   }
-  for (const [name, spec] of Object.entries(STATUS) as [keyof typeof STATUS, (typeof STATUS)[keyof typeof STATUS]][]) {
-    const step = spec.solid[mode];
+  for (const name of Object.keys(STATUS_SOLID) as (keyof typeof STATUS_SOLID)[]) {
+    const step = STATUS_SOLID[name][mode];
     const [l, c, h] = palettes[name][step].components;
     solidRole(name, name, ref(name, step), l, c, h, name[0]!.toUpperCase() + name.slice(1));
   }
@@ -173,9 +228,9 @@ function parseOverride(token: Token, raw: string, path: string, layers: Flat[]):
       return parseColor(value);
     case 'dimension': {
       if (value === '0') return { value: 0, unit: 'px' };
-      const m = /^(-?\d*\.?\d+)(px|rem)$/.exec(value);
-      if (!m) throw new Error(`Override for "${path}" must be a length in px or rem (got "${raw}").`);
-      return { value: Number(m[1]), unit: m[2] as 'px' | 'rem' };
+      const m = /^(-?\d*\.?\d+)(px|rem|em)$/.exec(value);
+      if (!m) throw new Error(`Override for "${path}" must be a length in px, rem or em (got "${raw}").`);
+      return { value: Number(m[1]), unit: m[2] as 'px' | 'rem' | 'em' };
     }
     case 'duration': {
       const m = /^(\d*\.?\d+)ms$/.exec(value);
@@ -224,21 +279,24 @@ function applyOverrides(layers: Layers, overrides: Record<string, string>): void
 
 export function resolveLayers(brief: Brief, overrides: Record<string, string> = {}): Layers {
   const b = resolveBrief(brief);
+  const { style } = b;
+  const curves = { lightness: style.color.lightness, chroma: style.color.chroma };
   // Brand colors are always opaque; any alpha in the input is dropped.
   const primary = fromHex(parseColor(b.brandColor).hex);
   const [pl, pc, ph] = primary.components;
   const accent = b.accent
     ? fromHex(parseColor(b.accent).hex)
-    : oklch(Math.min(0.7, Math.max(0.5, pl)), pc, (ph + b.accentShift + 360) % 360);
+    : oklch(Math.min(0.7, Math.max(0.5, pl)), pc, (ph + style.color.accentShift + 360) % 360);
 
+  const status = style.color.status;
   const palettes: Record<PaletteName, Ramp> = {
-    neutral: ramp(ph, Math.min(pc, 0.03 * b.neutralTint)),
-    primary: ramp(ph, pc),
-    accent: ramp(accent.components[2], accent.components[1]),
-    success: ramp(STATUS.success.hue, STATUS.success.chroma),
-    warning: ramp(STATUS.warning.hue, STATUS.warning.chroma),
-    danger: ramp(STATUS.danger.hue, STATUS.danger.chroma),
-    info: ramp(STATUS.info.hue, STATUS.info.chroma),
+    neutral: ramp(ph, Math.min(pc, 0.03 * style.color.neutralTint), curves),
+    primary: ramp(ph, pc, curves),
+    accent: ramp(accent.components[2], accent.components[1], curves),
+    success: ramp(status.success.hue, status.success.chroma, curves),
+    warning: ramp(status.warning.hue, status.warning.chroma, curves),
+    danger: ramp(status.danger.hue, status.danger.chroma, curves),
+    info: ramp(status.info.hue, status.info.chroma, curves),
   };
 
   const base: Flat = new Map();
@@ -249,17 +307,17 @@ export function resolveLayers(brief: Brief, overrides: Record<string, string> = 
   for (const [name, r] of Object.entries(palettes)) {
     for (const [step, value] of Object.entries(r)) base.set(`palette.${name}.${step}`, color(value));
   }
-  typeTokens(base, { ratio: b.typeScale, fonts: b.fonts });
-  spaceTokens(base, b.density);
-  radiusTokens(base, b.radius);
-  shadowTokens(base, b.shadows, palettes.neutral[950]);
-  motionTokens(base);
+  typeTokens(base, style.type);
+  spaceTokens(base, style.space.densities[b.density]);
+  shapeTokens(base, style.shape);
+  shadowTokens(base, style.elevation, palettes.neutral[950]);
+  motionTokens(base, style.motion);
 
   const brand = { primary, accent };
   const layers: Layers = {
     base,
-    light: semanticColors('light', palettes, brand),
-    ...(b.darkMode ? { dark: semanticColors('dark', palettes, brand) } : {}),
+    light: semanticColors('light', palettes, brand, style.color.surfaces.light),
+    ...(b.darkMode ? { dark: semanticColors('dark', palettes, brand, style.color.surfaces.dark) } : {}),
   };
   applyOverrides(layers, overrides);
   return layers;

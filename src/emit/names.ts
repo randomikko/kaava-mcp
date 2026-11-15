@@ -9,7 +9,7 @@ export function cssVar(path: string): string {
 
 /**
  * Tailwind v4 theme variable for a token, following Tailwind's namespaces so utilities are generated
- * (`--text-lg`, `--font-sans`, `--spacing-gap`, ...). Returns null for tokens Tailwind derives itself:
+ * (`--text-lg`, `--text-lg--letter-spacing`, `--font-sans`, `--spacing-gap`, ...). Returns null for tokens Tailwind derives itself:
  * the numeric spacing steps all come from the single `--spacing` unit.
  */
 export function tailwindVar(path: string): string | null {
@@ -18,6 +18,7 @@ export function tailwindVar(path: string): string | null {
     if (p[1] === 'family') return `--font-${p[2]}`;
     if (p[1] === 'size') return `--text-${p[2]}`;
     if (p[1] === 'lineHeight') return `--text-${p[2]}--line-height`;
+    if (p[1] === 'tracking') return `--text-${p[2]}--letter-spacing`;
     if (p[1] === 'weight') return `--font-weight-${p[2]}`;
   }
   if (p[0] === 'space') return /^\d+$/.test(p[1]!) ? null : `--spacing-${p[1]}`;

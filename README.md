@@ -8,18 +8,19 @@
 
 Agents are good at taste and bad at color math. Left alone they invent a new shade of blue in every file, pick greys that fail contrast, and drift between turns. Kaava (Finnish for *formula*) splits the work:
 
-- **The agent supplies the taste**: a brand color, a mood, how dense the UI should feel.
+- **The agent supplies the brief**: a brand color and a style.
+- **A style supplies the character**: ramp shape, typography, spacing rhythm, corners, elevation and motion, authored by a person and stored as a file.
 - **Kaava supplies the formula**: OKLCH color ramps, light and dark semantic roles that are contrast-checked, a modular type scale, spacing, radii, shadows and motion. Deterministic: the same brief always produces the same system.
 
 The result is one `kaava.json` in your repo, emitted as CSS variables, a Tailwind v4 theme, SCSS, TypeScript, W3C design tokens, and a `DESIGN.md` that tells the next agent session how to use it.
 
 No API keys, no network calls, no LLM inside the server.
 
-| `#4f46e5`, friendly | `#ffd400`, playful, dark |
+| [Ahtaaja](https://randomikko.github.io/kaava-mcp/ahtaaja/kaava/preview.html#light): `#4f46e5`, friendly | [Hinaaja](https://randomikko.github.io/kaava-mcp/hinaaja/kaava/preview.html#dark): `#ffd400`, playful, dark |
 |---|---|
-| ![Preview of a generated system in light mode](docs/preview-light.png) | ![Preview of a generated system in dark mode](docs/preview-dark.png) |
+| [![Preview of the Ahtaaja example system in light mode](docs/preview-light.png)](https://randomikko.github.io/kaava-mcp/ahtaaja/kaava/preview.html#light) | [![Preview of the Hinaaja example system in dark mode](docs/preview-dark.png)](https://randomikko.github.io/kaava-mcp/hinaaja/kaava/preview.html#dark) |
 
-Both pages above are `preview.html` as emitted by Kaava from a two-field brief: a brand color and a mood.
+Both pages are `preview.html` as emitted by Kaava from a two-field brief: a brand color and a style. **[Open the live examples](https://randomikko.github.io/kaava-mcp/)**, or browse every generated file in [`examples/`](examples). The example names are Finnish too: *ahtaaja* is a stevedore, *hinaaja* a tugboat.
 
 ## Install
 
@@ -67,7 +68,7 @@ What happens:
 | `kaava_audit` | Accessibility audit against WCAG 2.2 AA: every promised color pairing (with APCA values), fill boundaries, status colors under color-vision deficiencies, target sizes. |
 | `kaava_check_contrast` | Check any two colors or tokens against WCAG 2.2; when the pair fails, get the nearest passing color and the system text colors that do pass. |
 
-Resources: `kaava://system` (the current `kaava.json`) and `kaava://presets` (the moods).
+Resources: `kaava://system` (the current `kaava.json`) and `kaava://styles` (every style, its author and each decision it makes).
 
 ### The brief
 
@@ -75,16 +76,30 @@ Resources: `kaava://system` (the current `kaava.json`) and `kaava://presets` (th
 |---|---|---|
 | `brandColor` | any CSS color | required |
 | `accent` | any CSS color | derived from the brand hue |
-| `mood` | `minimal`, `friendly`, `corporate`, `playful`, `editorial`, `technical` | balanced |
-| `density` | `compact`, `comfortable`, `spacious` | from mood |
-| `radius` | `none`, `sm`, `md`, `lg`, `full` | from mood |
-| `typeScale` | 1.067 – 1.5 | from mood |
-| `neutralTint` | 0 – 1, how much brand hue the greys carry | from mood |
-| `shadows` | `none`, `soft`, `crisp` | from mood |
-| `fonts` | `{ sans, mono, display }` | system stacks |
+| `style` | `minimal`, `friendly`, `corporate`, `playful`, `editorial`, `technical` | `default` |
+| `density` | `compact`, `comfortable`, `spacious` | from style |
+| `radius` | `none`, `sm`, `md`, `lg`, `full` | from style |
+| `typeScale` | 1.067 – 1.5 | from style |
+| `neutralTint` | 0 – 1, how much brand hue the greys carry | from style |
+| `shadows` | `none`, `soft`, `crisp` | from style |
+| `fonts` | `{ sans, mono, display }` | from style |
 | `darkMode` | boolean | `true` |
 
-Explicit fields always win over the mood.
+Explicit fields win over the style: each one swaps a single aspect of it for a generic version, so leave them out to keep the style as designed.
+
+### Styles
+
+A style is one JSON file in [`styles/`](styles) holding every decision that gives a system its character, independent of brand color: the lightness and chroma curve of the color ramps, which steps are page and surface, status hues, type families and web fonts, each type size with its line height and letter-spacing, control heights and spacing rhythm per density, the radius scale, border width, shadow layers, durations and easings. Each file names its author.
+
+Styles are designed in the workbench, a local page with a control for every value and a live preview rendered by the real engine:
+
+```sh
+npm run workbench   # http://127.0.0.1:4174
+```
+
+It shows the style against several brand colors at once, with a contrast verdict for each, because a style has to hold for any color a brief brings. The family fields autocomplete every Google Fonts family, and a searchable list shows each one in its own typeface; choosing one adds its stylesheet to the style. Saving writes `styles/<id>.json`; the test suite then checks the new style against WCAG 2.2 AA across 102 brand colors.
+
+The built-in styles are generic starting points. Duplicate one and make it yours.
 
 ### Overrides
 
@@ -110,7 +125,7 @@ Keys are token paths; prefix semantic colors with `light:` or `dark:` to target 
 
 **Space and shape.** A 4px spacing scale, semantic spacing (`gap`, `inset`, `section`, `control`), control heights, a radius scale with `control` and `surface` aliases, three shadow levels, durations and easings.
 
-**Accessibility.** Every promised text and UI pairing meets WCAG 2.2 AA for any brand color, and the test suite sweeps 102 brand colors across all moods to keep it that way. `kaava_audit` also reports what tokens alone cannot guarantee: fills too faint to mark a button's edge, status colors that look alike with protanopia, deuteranopia or tritanopia, and controls under 24px. `kaava_check_contrast` covers any pairing you add yourself. The emitted stylesheets honor `prefers-reduced-motion`. Kaava audits the tokens, not rendered pages: run a tool such as axe on the built UI for markup, labels and focus order.
+**Accessibility.** Every promised text and UI pairing meets WCAG 2.2 AA for any brand color, and the test suite sweeps 102 brand colors across all styles to keep it that way. `kaava_audit` also reports what tokens alone cannot guarantee: fills too faint to mark a button's edge, status colors that look alike with protanopia, deuteranopia or tritanopia, and controls under 24px. `kaava_check_contrast` covers any pairing you add yourself. The emitted stylesheets honor `prefers-reduced-motion`. Kaava audits the tokens, not rendered pages: run a tool such as axe on the built UI for markup, labels and focus order.
 
 ### Output formats
 
@@ -121,7 +136,7 @@ Keys are token paths; prefix semantic colors with `light:` or `dark:` to target 
 | `scss` | `_tokens.scss` | Sass variables plus the custom properties. |
 | `ts` | `tokens.ts` | Typed objects of resolved values for React, Vue, Svelte, React Native, charts. |
 | `dtcg` | `tokens.json`, `tokens.dark.json` | W3C Design Tokens format for Figma plugins and Style Dictionary. |
-| `design-md` | `DESIGN.md` | Usage rules and the full role table, for agents and people. |
+| `design-md` | `DESIGN.md` | Tokens as YAML front matter, usage rules and the full role table, in the [DESIGN.md format](https://github.com/google-labs-code/design.md). Check it with `npx @google/design.md lint kaava/DESIGN.md`. |
 | `preview` | `preview.html` | A self-contained page showing the system in use, with every role, ramp and scale. Open it in a browser; add `#dark` or `#light` to force a theme. |
 
 ## Notes
@@ -142,7 +157,7 @@ Keys are token paths; prefix semantic colors with `light:` or `dark:` to target 
 ```ts
 import { buildSystem, renderTargets } from 'kaava-mcp';
 
-const system = buildSystem({ brandColor: '#4f46e5', mood: 'friendly' });
+const system = buildSystem({ brandColor: '#4f46e5', style: 'friendly' });
 const files = renderTargets(system, ['css', 'design-md']);
 ```
 
@@ -153,6 +168,8 @@ npm install
 npm test          # engine, emitters, and an in-memory MCP client end to end
 npm run build
 npm run inspect   # open the MCP Inspector against the built server
+npm run workbench # design styles with a live preview
+npm run examples  # regenerate examples/ after a change to generated output
 ```
 
 ## License
