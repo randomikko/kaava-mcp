@@ -1,0 +1,62 @@
+{
+  "name": "kaava-mcp",
+  "version": "0.1.0",
+  "description": "MCP server that generates a complete, accessible design system from a short brief and emits it as CSS, Tailwind, SCSS, TypeScript and DTCG tokens.",
+  "type": "module",
+  "bin": {
+    "kaava-mcp": "dist/index.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/lib.d.mts",
+      "import": "./dist/lib.mjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "inspect": "npx @modelcontextprotocol/inspector node dist/index.mjs",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "design-system",
+    "design-tokens",
+    "dtcg",
+    "tailwind",
+    "oklch",
+    "accessibility"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/randomikko/kaava-mcp.git"
+  },
+  "homepage": "https://github.com/randomikko/kaava-mcp#readme",
+  "bugs": "https://github.com/randomikko/kaava-mcp/issues",
+  "author": "Mikko Grönlund",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "culori": "^4.0.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/culori": "^4.0.1",
+    "@types/node": "^26.6.6",
+    "tsdown": "^0.22.14",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.12"
+  }
+}
