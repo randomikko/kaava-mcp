@@ -1,0 +1,29 @@
+name: Bug report
+description: Something Kaava generated or did is wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you asked for, what you got, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: brief
+    attributes:
+      label: Brief
+      description: The arguments passed to the tool, or the `brief` and `overrides` sections of your kaava.json.
+      render: json
+  - type: input
+    id: version
+    attributes:
+      label: kaava-mcp version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: MCP client and Node version
+      placeholder: Claude Code 2.x, Node 22
