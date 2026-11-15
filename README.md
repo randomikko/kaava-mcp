@@ -64,7 +64,8 @@ What happens:
 | `kaava_update_system` | Patch the brief, or override single tokens. Regenerates emitted files. |
 | `kaava_get_tokens` | Look up tokens by path (`color`, `font.size`, `palette.primary`, …). |
 | `kaava_emit` | Write `css`, `tailwind`, `scss`, `ts`, `dtcg`, `design-md`, `preview` outputs. |
-| `kaava_audit` | WCAG 2.2 AA check of every promised color pairing, with APCA values. |
+| `kaava_audit` | Accessibility audit against WCAG 2.2 AA: every promised color pairing (with APCA values), fill boundaries, status colors under color-vision deficiencies, target sizes. |
+| `kaava_check_contrast` | Check any two colors or tokens against WCAG 2.2; when the pair fails, get the nearest passing color and the system text colors that do pass. |
 
 Resources: `kaava://system` (the current `kaava.json`) and `kaava://presets` (the moods).
 
@@ -108,6 +109,8 @@ Keys are token paths; prefix semantic colors with `light:` or `dark:` to target 
 **Type.** Nine sizes on a modular scale with matched line heights, four weights, sans / mono / display families.
 
 **Space and shape.** A 4px spacing scale, semantic spacing (`gap`, `inset`, `section`, `control`), control heights, a radius scale with `control` and `surface` aliases, three shadow levels, durations and easings.
+
+**Accessibility.** Every promised text and UI pairing meets WCAG 2.2 AA for any brand color, and the test suite sweeps 102 brand colors across all moods to keep it that way. `kaava_audit` also reports what tokens alone cannot guarantee: fills too faint to mark a button's edge, status colors that look alike with protanopia, deuteranopia or tritanopia, and controls under 24px. `kaava_check_contrast` covers any pairing you add yourself. The emitted stylesheets honor `prefers-reduced-motion`. Kaava audits the tokens, not rendered pages: run a tool such as axe on the built UI for markup, labels and focus order.
 
 ### Output formats
 

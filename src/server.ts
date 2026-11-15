@@ -3,6 +3,13 @@ import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
+import {
+  accessibilitySummary,
+  auditAccessibility,
+  checkContrast,
+  passingTextRoles,
+  resolveColorInput,
+} from './a11y.js';
 import { auditContrast, contrastSummary } from './audit.js';
 import { renderTargets } from './emit/index.js';
 import { cssVar } from './emit/names.js';
@@ -31,6 +38,7 @@ Typical flow:
 2. kaava_emit -> writes tokens for the project's stack (css, tailwind, scss, ts, dtcg) and DESIGN.md with usage rules.
 3. Read DESIGN.md (or kaava_get_tokens) before writing UI, and use tokens instead of hard-coded values.
 4. kaava_update_system to adjust the brief or override single tokens; previously emitted files are regenerated.
+5. kaava_audit after color or size changes, and kaava_check_contrast before using any color pairing the system does not already promise.
 
 Never edit kaava.json or emitted files by hand; they are regenerated.`;
 
@@ -312,22 +320,83 @@ export function createServer(options: ServerOptions = {}): McpServer {
   tool(
     'kaava_audit',
     {
-      title: 'Audit contrast',
+      title: 'Audit accessibility',
       description:
-        'Check every promised foreground/background pairing of the current design system against WCAG 2.2 AA (4.5:1 text, 3:1 UI), in light and dark, and report APCA Lc for reference. Run after overriding colors.',
+        'Accessibility audit of the current design system against WCAG 2.2 AA, in light and dark. Checks every promised foreground/background pairing (4.5:1 text, 3:1 UI, with APCA Lc for reference), whether solid fills have a visible boundary, whether status colors stay distinguishable with color-vision deficiencies (protanopia, deuteranopia, tritanopia), control target sizes and minimum text size. Run after overriding colors or sizes. It audits the tokens, not rendered pages.',
       inputSchema: {
-        failuresOnly: z.boolean().optional().describe('List only failing pairs. Default false.'),
+        failuresOnly: z.boolean().optional().describe('List only failures and warnings. Default false.'),
         projectRoot: projectRootArg,
       },
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async ({ failuresOnly, projectRoot: requested }) => {
       const system = await loadSystem(await projectRoot(requested));
-      const results = auditContrast(layersOf(system));
+      const layers = layersOf(system);
+      const results = auditContrast(layers);
       const rows = results
         .filter((r) => !failuresOnly || !r.pass)
         .map((r) => `${r.pass ? 'pass' : 'FAIL'}  [${r.mode}] ${r.fg} on ${r.bg}  ${r.ratio}:1 (min ${r.min}:1, APCA Lc ${r.apca})  ${r.fgHex} / ${r.bgHex}`);
-      return [contrastSummary(results), ...(rows.length ? ['', ...rows] : [])].join('\n');
+      const findings = auditAccessibility(layers);
+      const label = { fail: 'FAIL', warn: 'warn', info: 'info' } as const;
+      const notes = findings
+        .filter((f) => !failuresOnly || f.level !== 'info')
+        .map((f) => `${label[f.level]}  ${f.mode ? `[${f.mode}] ` : ''}${f.message} (${f.criterion})`);
+      return [
+        contrastSummary(results),
+        accessibilitySummary(findings),
+        ...(notes.length ? ['', ...notes] : []),
+        ...(rows.length ? ['', ...rows] : []),
+      ].join('\n');
+    },
+  );
+
+  tool(
+    'kaava_check_contrast',
+    {
+      title: 'Check contrast',
+      description:
+        'Check one foreground/background pair against WCAG 2.2 and report the APCA Lc value. Each color is a CSS color ("#767676", "rgb(0 0 0 / 0.6)") or a token of the current design system ("color.fg-muted", "--color-primary", "palette.neutral.400"). When the pair fails, returns the nearest passing color of the same hue and the system text colors that do pass on that background. Use it before introducing a pairing the system does not already promise. Works without a kaava.json when both colors are CSS colors.',
+      inputSchema: {
+        foreground: z.string().describe('Text, icon or border color: a CSS color or a token.'),
+        background: z.string().describe('The color behind it: a CSS color or a token.'),
+        use: z
+          .enum(['text', 'large-text', 'ui'])
+          .optional()
+          .describe('What the foreground is: "text" (default), "large-text" (24px, or 18.66px bold, and up), or "ui" (icons, borders, focus rings).'),
+        level: z.enum(['AA', 'AAA']).optional().describe('Conformance level to test against. Default AA.'),
+        mode: z.enum(['light', 'dark']).optional().describe('Theme used to resolve semantic color tokens. Default light.'),
+        projectRoot: projectRootArg,
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ foreground, background, use = 'text', level = 'AA', mode = 'light', projectRoot: requested }) => {
+      const system = await readSystem(await projectRoot(requested)).catch(() => undefined);
+      const layers = system ? layersOf(system) : undefined;
+      if (mode === 'dark' && layers && !layers.dark) throw new Error('This design system is light-only; drop mode: "dark".');
+      const fg = resolveColorInput(foreground, layers, mode);
+      const bg = resolveColorInput(background, layers, mode);
+      const result = checkContrast(fg, bg, use, level);
+      const name = (c: typeof fg, hex: string): string => (c.token ? `${c.token} (${hex})` : hex);
+      const mark = (ok: boolean): string => (ok ? 'pass' : 'FAIL');
+      const what = { text: 'text', 'large-text': 'large text', ui: 'UI components' }[use];
+      const lines = [
+        `${name(fg, result.fgHex)} on ${name(bg, result.bgHex)}: ${result.ratio}:1, APCA Lc ${result.apca}`,
+        `${mark(result.pass)}  WCAG 2.2 ${level} for ${what} (needs ${result.required}:1)`,
+        `All thresholds: AA text ${mark(result.meets.aaText)} · AA large text ${mark(result.meets.aaLargeText)} · UI ${mark(result.meets.ui)} · AAA text ${mark(result.meets.aaaText)} · AAA large text ${mark(result.meets.aaaLargeText)}`,
+      ];
+      if (fg.alpha < 1) lines.push(`The foreground is translucent; it was flattened onto the background as ${result.fgHex}.`);
+      if (bg.alpha < 1) lines.push('The background is translucent and was treated as opaque; check it against what is behind it.');
+      if (!result.pass) {
+        lines.push(
+          '',
+          result.suggestion
+            ? `Nearest passing color of the same hue: ${result.suggestion}`
+            : `No lightness of this hue reaches ${result.required}:1 on ${result.bgHex}; change the background instead.`,
+        );
+        const roles = layers && use !== 'ui' ? passingTextRoles(layers, mode, result.bgHex, result.required) : [];
+        if (roles.length) lines.push(`System text colors that pass on this background: ${roles.map((r) => `${r.token} ${r.hex} (${r.ratio}:1)`).join(', ')}`);
+      }
+      return lines.join('\n');
     },
   );
 
@@ -400,6 +469,7 @@ function summarize(system: KaavaSystem): string {
     `Type (ratio ${b.typeScale}): ${sizes.join(', ')}`,
     ...(overrides.length ? [`Overrides: ${overrides.join(', ')}`] : []),
     contrastSummary(auditContrast(layers)),
+    `${accessibilitySummary(auditAccessibility(layers))} Details: kaava_audit.`,
     `${layers.base.size + layers.light.size} tokens total; browse with kaava_get_tokens.`,
   ].join('\n');
 }

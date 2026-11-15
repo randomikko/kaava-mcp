@@ -37,6 +37,7 @@ describe('kaava MCP server', () => {
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([
       'kaava_audit',
+      'kaava_check_contrast',
       'kaava_create_system',
       'kaava_emit',
       'kaava_get_tokens',
@@ -160,6 +161,42 @@ describe('kaava MCP server', () => {
     expect([created.isError, emitted.isError, audited.isError]).toEqual([false, false, false]);
     expect(await read('kaava/preview.html')).toContain('<title>Parallel · design system</title>');
     expect(JSON.parse(await read('kaava.json')).emit.targets).toEqual(['css', 'preview']);
+  });
+
+  it('audits accessibility beyond contrast', async () => {
+    await call('kaava_create_system', { brandColor: '#4f46e5' });
+    const audit = await call('kaava_audit');
+    expect(audit.text).toMatch(/all \d+ checked pairs pass/);
+    expect(audit.text).toContain('success and danger with deuteranopia');
+    expect(audit.text).toContain('WCAG 1.4.1 Use of Color');
+    expect(audit.text).toContain('Control heights: sm 32px, md 40px, lg 48px');
+    expect((await call('kaava_audit', { failuresOnly: true })).text).not.toContain('Control heights');
+
+    await call('kaava_update_system', { overrides: { 'size.control.sm': '20px' } });
+    expect((await call('kaava_audit', { failuresOnly: true })).text).toContain('FAIL  size.control.sm is 20px');
+  });
+
+  it('checks a single contrast pair, with or without a design system', async () => {
+    // Literal colors need no kaava.json.
+    const literal = await call('kaava_check_contrast', { foreground: '#777777', background: '#ffffff' });
+    expect(literal.isError).toBe(false);
+    expect(literal.text).toContain('#777777 on #ffffff: 4.47:1');
+    expect(literal.text).toContain('FAIL  WCAG 2.2 AA for text (needs 4.5:1)');
+    expect(literal.text).toMatch(/Nearest passing color of the same hue: #[0-9a-f]{6}/);
+    expect((await call('kaava_check_contrast', { foreground: '#777777', background: '#ffffff', use: 'ui' })).text).toContain('pass  WCAG 2.2 AA for UI');
+    const noSystem = await call('kaava_check_contrast', { foreground: 'color.fg', background: '#fff' });
+    expect(noSystem.isError).toBe(true);
+    expect(noSystem.text).toContain('token names need a kaava.json');
+
+    await call('kaava_create_system', { brandColor: '#4f46e5' });
+    const tokens = await call('kaava_check_contrast', { foreground: '--color-fg-muted', background: 'surface', level: 'AAA' });
+    expect(tokens.text).toContain('color.fg-muted (#');
+    expect(tokens.text).toContain('on color.surface (#ffffff)');
+    const failing = await call('kaava_check_contrast', { foreground: 'palette.neutral.300', background: 'color.bg', mode: 'dark', level: 'AAA' });
+    expect(failing.text).toContain('pass  WCAG 2.2 AAA');
+    const weak = await call('kaava_check_contrast', { foreground: 'palette.neutral.300', background: 'color.bg' });
+    expect(weak.text).toContain('System text colors that pass on this background: color.fg #');
+    expect((await call('kaava_check_contrast', { foreground: 'space.4', background: '#fff' })).text).toContain('not a color');
   });
 
   it('returns actionable errors', async () => {

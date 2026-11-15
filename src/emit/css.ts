@@ -41,6 +41,20 @@ function darkBlocks(layers: Layers, name: Namer, ref: Ref, indent: string): stri
   ];
 }
 
+/** Zero the duration tokens when the OS asks for reduced motion, so token-driven transitions become instant. */
+function reducedMotion(layers: Layers, name: Namer, indent: string): string[] {
+  const durations = [...layers.base.keys()].filter((p) => p.startsWith('duration.')).map(name).filter((v): v is string => !!v);
+  if (durations.length === 0) return [];
+  return [
+    `${indent}/* Reduced motion: transitions that use the duration tokens become instant. */`,
+    `${indent}@media (prefers-reduced-motion: reduce) {`,
+    `${indent}  :root {`,
+    ...durations.map((v) => `${indent}    ${v}: 0ms;`),
+    `${indent}  }`,
+    `${indent}}`,
+  ];
+}
+
 export function emitCss(system: KaavaSystem, layers: Layers): string {
   const ref: Ref = (path) => `var(${cssVar(path)})`;
   return [
@@ -53,6 +67,8 @@ export function emitCss(system: KaavaSystem, layers: Layers): string {
     '}',
     '',
     ...darkBlocks(layers, cssVar, ref, ''),
+    ...(layers.dark ? [''] : []),
+    ...reducedMotion(layers, cssVar, ''),
     '',
   ].join('\n');
 }
@@ -84,7 +100,12 @@ export function emitTailwind(system: KaavaSystem, layers: Layers): string {
     ...declarations(layers.light, tailwindVar, ref, '  '),
     '}',
     '',
-    ...(layers.dark ? ['@layer base {', ...darkBlocks(layers, tailwindVar, ref, '  '), '}', ''] : []),
+    '@layer base {',
+    ...darkBlocks(layers, tailwindVar, ref, '  '),
+    ...(layers.dark ? [''] : []),
+    ...reducedMotion(layers, tailwindVar, '  '),
+    '}',
+    '',
   ].join('\n');
 }
 

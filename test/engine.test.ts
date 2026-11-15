@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { auditAccessibility, checkContrast, nearestPassing } from '../src/a11y.js';
 import { auditContrast } from '../src/audit.js';
 import { apca, parseColor, ramp, RAMP_STEPS, wcag } from '../src/engine/color.js';
 import { buildSystem, layersOf, resolveLayers } from '../src/engine/resolve.js';
@@ -131,6 +132,37 @@ describe('overrides', () => {
     const layers = resolveLayers(brief, { 'color.fg': '#cccccc' });
     const failing = auditContrast(layers).filter((r) => !r.pass);
     expect(failing.some((r) => r.mode === 'light' && r.fg === 'fg')).toBe(true);
+  });
+});
+
+describe('accessibility checks', () => {
+  it('suggests a passing color that keeps the hue', () => {
+    const literal = (hex: string) => ({ hex, alpha: 1 });
+    const result = checkContrast(literal('#8b9cff'), literal('#ffffff'));
+    expect(result.pass).toBe(false);
+    expect(wcag(result.suggestion!, '#ffffff')).toBeGreaterThanOrEqual(4.5);
+    expect(Math.abs(parseColor(result.suggestion!).components[2] - parseColor('#8b9cff').components[2])).toBeLessThan(6);
+    // Nothing reaches 7:1 on mid grey, in either direction.
+    expect(nearestPassing('#000000', '#777777', 7)).toBeUndefined();
+  });
+
+  it('never rounds a ratio up to a threshold', () => {
+    const result = checkContrast({ hex: '#777777', alpha: 1 }, { hex: '#ffffff', alpha: 1 });
+    expect(result.ratio).toBeLessThan(4.5);
+    expect(result.meets).toMatchObject({ aaText: false, aaLargeText: true, ui: true, aaaText: false });
+  });
+
+  it('flattens translucent foregrounds onto the background', () => {
+    expect(checkContrast({ hex: '#000000', alpha: 0.5 }, { hex: '#ffffff', alpha: 1 }).fgHex).toBe('#808080');
+  });
+
+  it('flags look-alike status colors, faint fills and undersized targets', () => {
+    const findings = auditAccessibility(resolveLayers({ brandColor: '#ffd400' }, { 'size.control.sm': '1rem', 'color.danger': '{color.success}' }));
+    const of = (check: string, level: string) => findings.filter((f) => f.check === check && f.level === level);
+    expect(of('target-size', 'fail')[0]!.message).toContain('size.control.sm is 16px');
+    expect(of('color-vision', 'warn').some((f) => f.message.includes('success and danger with full color vision'))).toBe(true);
+    expect(of('fill-boundary', 'warn').some((f) => f.mode === 'light' && f.message.includes('primary (#ffd400'))).toBe(true);
+    expect(of('fill-boundary', 'warn').some((f) => f.mode === 'dark' && f.message.includes('primary'))).toBe(false);
   });
 });
 
