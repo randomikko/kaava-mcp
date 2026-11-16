@@ -1,6 +1,6 @@
 {
   "name": "kaava-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server that generates a complete, accessible design system from a short brief and emits it as CSS, Tailwind, SCSS, TypeScript and DTCG tokens.",
   "type": "module",
   "bin": {

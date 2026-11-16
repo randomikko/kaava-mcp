@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.0](https://github.com/randomikko/kaava-mcp/compare/v0.1.0...v0.2.0) (2026-11-16)
+
+
+### Features
+
+* command line and shadcn/ui emit target ([aa8fbe8](https://github.com/randomikko/kaava-mcp/commit/aa8fbe86f04e757dad33ef05e95ee310d9d2fa0a))
+* command line for the tools ([44c5fee](https://github.com/randomikko/kaava-mcp/commit/44c5feeb674ca18b6a3ad333acb43d9b02553f7f))
+* command line for the tools ([3b0ee19](https://github.com/randomikko/kaava-mcp/commit/3b0ee19f6af4fcf006d965bdd54dcdd6167acc83))
+* shadcn/ui emit target, and a clearer list of supported systems in the README ([a0ff827](https://github.com/randomikko/kaava-mcp/commit/a0ff8277984cb75bb114af0bfb0c3155402650e4))
+
 ## [0.1.0] - 2026-11-16
 
 First release: generate a design system from a brief and emit it for any stack.
