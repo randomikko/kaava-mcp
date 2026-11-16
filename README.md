@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/kaava-mcp)](https://www.npmjs.com/package/kaava-mcp)
 [![CI](https://github.com/randomikko/kaava-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/randomikko/kaava-mcp/actions/workflows/ci.yml)
-[![license](https://img.shields.io/npm/l/kaava-mcp)](LICENSE)
+[![license](https://img.shields.io/github/license/randomikko/kaava-mcp)](LICENSE)
 
 **An MCP server that gives your coding agent a real design system.**
 
