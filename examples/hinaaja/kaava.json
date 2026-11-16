@@ -12,6 +12,7 @@
     "targets": [
       "css",
       "tailwind",
+      "shadcn",
       "scss",
       "ts",
       "dtcg",

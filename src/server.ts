@@ -311,6 +311,7 @@ export function createServer(options: ServerOptions = {}): McpServer {
       const hints: string[] = [];
       if (targets.includes('css')) hints.push(`Import ${path.join(outDir, 'tokens.css')} once at the app entry, then use var(--color-…), var(--space-…) etc.`);
       if (targets.includes('tailwind')) hints.push(`In the main stylesheet: @import "tailwindcss"; then @import "./${path.join(outDir, 'tailwind.css')}"; (adjust the relative path).`);
+      if (targets.includes('shadcn')) hints.push(`shadcn/ui: run \`npx shadcn@latest init\` if components are not set up yet, then replace the :root, .dark and @theme inline blocks in globals.css with ${path.join(outDir, 'shadcn.css')} (or @import it after tailwindcss).`);
       if (targets.includes('preview')) hints.push(`Tell the user to open ${path.join(outDir, 'preview.html')} in a browser to see the system (append #dark or #light to force a theme).`);
       if (targets.includes('design-md')) hints.push(`Read ${path.join(outDir, 'DESIGN.md')} before writing UI, and reference it from CLAUDE.md / AGENTS.md so future sessions follow it.`);
       return [`Wrote ${written.length} file(s):`, ...written.map((f) => `- ${path.relative(root, f)}`), ...(hints.length ? ['', ...hints] : [])].join('\n');

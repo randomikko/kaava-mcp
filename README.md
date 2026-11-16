@@ -12,7 +12,9 @@ Agents are good at taste and bad at color math. Left alone they invent a new sha
 - **A style supplies the character**: ramp shape, typography, spacing rhythm, corners, elevation and motion, authored by a person and stored as a file.
 - **Kaava supplies the formula**: OKLCH color ramps, light and dark semantic roles that are contrast-checked, a modular type scale, spacing, radii, shadows and motion. Deterministic: the same brief always produces the same system.
 
-The result is one `kaava.json` in your repo, emitted as CSS variables, a Tailwind v4 theme, SCSS, TypeScript, W3C design tokens, and a `DESIGN.md` that tells the next agent session how to use it.
+The result is one `kaava.json` in your repo, emitted as CSS variables, a Tailwind v4 theme, a shadcn/ui theme, SCSS, TypeScript, W3C design tokens, and a `DESIGN.md` that tells the next agent session how to use it.
+
+**Works with:** [Tailwind CSS v4](https://tailwindcss.com/docs/theme) · [shadcn/ui](https://ui.shadcn.com/docs/theming) · [CSS custom properties](https://developer.mozilla.org/en-US/docs/Web/CSS/Using_CSS_custom_properties) · [Sass](https://sass-lang.com) · [TypeScript](https://www.typescriptlang.org) · [W3C design tokens](https://www.designtokens.org/) (Figma plugins, [Style Dictionary](https://styledictionary.com)) · [DESIGN.md](https://github.com/google-labs-code/design.md). Details in [Output formats](#output-formats).
 
 No API keys, no network calls, no LLM inside the server.
 
@@ -71,7 +73,7 @@ That writes `kaava.json` plus `tokens.css`, `DESIGN.md` and `preview.html` into 
 |---|---|
 | `init --brand <color> [brief options]` | Create the system and write the outputs. `--targets tailwind,design-md` and `--out src/styles` choose what goes where. |
 | `update [brief options] [--set <token>=<value>] [--unset <token>]` | Change the brief or override single tokens. Regenerates the outputs. |
-| `emit <target>...` | Write more outputs: `css`, `tailwind`, `scss`, `ts`, `dtcg`, `design-md`, `preview`. |
+| `emit <target>...` | Write more outputs: `css`, `tailwind`, `shadcn`, `scss`, `ts`, `dtcg`, `design-md`, `preview`. |
 | `tokens [<path>]` | List token groups, or the tokens under a path such as `color` or `font.size`. |
 | `audit` | Accessibility audit. Exits 1 when something fails, so it can gate CI. |
 | `contrast <foreground> <background>` | Check two colors or tokens. Exits 1 when the pair fails. |
@@ -88,7 +90,7 @@ Without a command, `kaava-mcp` runs as the MCP server.
 | `kaava_create_system` | Brief → full design system saved to `kaava.json`. Only `brandColor` is required. |
 | `kaava_update_system` | Patch the brief, or override single tokens. Regenerates emitted files. |
 | `kaava_get_tokens` | Look up tokens by path (`color`, `font.size`, `palette.primary`, …). |
-| `kaava_emit` | Write `css`, `tailwind`, `scss`, `ts`, `dtcg`, `design-md`, `preview` outputs. |
+| `kaava_emit` | Write `css`, `tailwind`, `shadcn`, `scss`, `ts`, `dtcg`, `design-md`, `preview` outputs. |
 | `kaava_audit` | Accessibility audit against WCAG 2.2 AA: every promised color pairing (with APCA values), fill boundaries, status colors under color-vision deficiencies, target sizes. |
 | `kaava_check_contrast` | Check any two colors or tokens against WCAG 2.2; when the pair fails, get the nearest passing color and the system text colors that do pass. |
 
@@ -153,15 +155,18 @@ Keys are token paths; prefix semantic colors with `light:` or `dark:` to target 
 
 ### Output formats
 
-| Target | File | For |
+| Target | File | Use it when |
 |---|---|---|
-| `css` | `tokens.css` | Any framework. Custom properties on `:root`; dark mode follows the OS, or force it with `data-theme="dark"` / `.dark`. |
-| `tailwind` | `tailwind.css` | Tailwind v4. `@theme` variables in Tailwind's namespaces, so you get `bg-surface`, `text-fg-muted`, `rounded-control`, `p-inset`. |
-| `scss` | `_tokens.scss` | Sass variables plus the custom properties. |
-| `ts` | `tokens.ts` | Typed objects of resolved values for React, Vue, Svelte, React Native, charts. |
-| `dtcg` | `tokens.json`, `tokens.dark.json` | W3C Design Tokens format for Figma plugins and Style Dictionary. |
-| `design-md` | `DESIGN.md` | Tokens as YAML front matter, usage rules and the full role table, in the [DESIGN.md format](https://github.com/google-labs-code/design.md). Check it with `npx @google/design.md lint kaava/DESIGN.md`. |
-| `preview` | `preview.html` | A self-contained page showing the system in use, with every role, ramp and scale. Open it in a browser; add `#dark` or `#light` to force a theme. |
+| `css` | `tokens.css` | You use any framework, or none. Custom properties on `:root`; dark mode follows the OS, or force it with `data-theme="dark"` / `.dark`. |
+| `tailwind` | `tailwind.css` | You use [Tailwind v4](https://tailwindcss.com/docs/theme). `@theme` variables in Tailwind's namespaces, so you get `bg-surface`, `text-fg-muted`, `rounded-control`, `p-inset`. |
+| `shadcn` | `shadcn.css` | You use [shadcn/ui](https://ui.shadcn.com/docs/theming). The `:root`, `.dark` and `@theme inline` blocks its components read (`--background`, `--primary`, `--ring`, `--radius`, charts, sidebar), in OKLCH. Run `npx shadcn@latest init`, then replace those blocks in `globals.css` with this file's. |
+| `scss` | `_tokens.scss` | You use [Sass](https://sass-lang.com). Sass variables plus the custom properties. |
+| `ts` | `tokens.ts` | You style from [TypeScript](https://www.typescriptlang.org): typed objects of resolved values for React, Vue, Svelte, React Native, charts. |
+| `dtcg` | `tokens.json`, `tokens.dark.json` | You feed design tools or a pipeline: the [W3C Design Tokens](https://www.designtokens.org/) format, read by Figma plugins and [Style Dictionary](https://styledictionary.com). |
+| `design-md` | `DESIGN.md` | You want your agent to follow the system: tokens as YAML front matter, usage rules and the full role table, in the [DESIGN.md format](https://github.com/google-labs-code/design.md). Check it with `npx @google/design.md lint kaava/DESIGN.md`. |
+| `preview` | `preview.html` | You want to see it: a self-contained page showing the system in use, with every role, ramp and scale. Open it in a browser; add `#dark` or `#light` to force a theme. |
+
+Kaava emits the files and variables each system reads. It does not install or configure those systems for you, and the shadcn output has not yet been compared with a fresh `shadcn init` on a real project.
 
 ## Notes
 
@@ -172,6 +177,7 @@ Keys are token paths; prefix semantic colors with `light:` or `dark:` to target 
 
 ## Roadmap
 
+- **Next targets**: a [MUI](https://mui.com/material-ui/customization/theming/) `createTheme` output.
 - **0.2** Components: framework-neutral specs and shared styles with thin React, Vue, Svelte and HTML wrappers; scanning code for hard-coded values.
 - **0.3** Import an existing system from CSS variables, Tailwind config or DTCG files.
 - **0.4** Import from Figma and Storybook.

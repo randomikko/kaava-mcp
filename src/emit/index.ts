@@ -4,6 +4,7 @@ import { emitCss, emitScss, emitTailwind } from './css.js';
 import { emitDesignMd } from './designMd.js';
 import { HEADER } from './names.js';
 import { emitPreview } from './preview.js';
+import { emitShadcn } from './shadcn.js';
 import { emitTs } from './ts.js';
 
 export interface EmittedFile {
@@ -22,6 +23,9 @@ export function renderTargets(system: KaavaSystem, targets: readonly EmitTarget[
         break;
       case 'tailwind':
         files.push({ file: 'tailwind.css', content: emitTailwind(system, layers) });
+        break;
+      case 'shadcn':
+        files.push({ file: 'shadcn.css', content: emitShadcn(system, layers) });
         break;
       case 'scss':
         files.push({ file: '_tokens.scss', content: emitScss(system, layers) });

@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- `shadcn` emit target: `shadcn.css` with the theme variables shadcn/ui components read (`:root`, `.dark`, `@theme inline`), filled from Kaava's contrast-checked roles in OKLCH. The tests check every foreground and background pair against WCAG AA in light and dark.
 - Command line: `kaava-mcp init`, `update`, `emit`, `tokens`, `audit`, `contrast` and `styles` run the tools without an MCP client. `audit` and `contrast` exit 1 on a failure, for use in CI. Without a command, `kaava-mcp` still runs as the MCP server.
 
 ## [0.1.0] - 2026-11-16

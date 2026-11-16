@@ -2,6 +2,7 @@ import { lint } from '@google/design.md/linter';
 import { describe, expect, it } from 'vitest';
 import { contrastPairs } from '../src/audit.js';
 import { renderTargets } from '../src/emit/index.js';
+import { wcag } from '../src/engine/color.js';
 import { buildSystem, layersOf } from '../src/engine/resolve.js';
 import { EMIT_TARGETS } from '../src/schema.js';
 import { styles, type StyleId } from '../src/style.js';
@@ -19,7 +20,7 @@ function undeclaredVars(css: string): string[] {
 describe('emitters', () => {
   it('writes one file set per target', () => {
     expect(Object.keys(files).sort()).toEqual(
-      ['DESIGN.md', '_tokens.scss', 'preview.html', 'tailwind.css', 'tokens.css', 'tokens.dark.json', 'tokens.json', 'tokens.ts'].sort(),
+      ['DESIGN.md', '_tokens.scss', 'preview.html', 'shadcn.css', 'tailwind.css', 'tokens.css', 'tokens.dark.json', 'tokens.json', 'tokens.ts'].sort(),
     );
   });
 
@@ -56,6 +57,67 @@ describe('emitters', () => {
     expect(tw).toContain('--spacing-gap: calc(var(--spacing) * 3);');
     expect(tw).not.toMatch(/--space-\d/);
     expect(tw.split('{').length).toBe(tw.split('}').length);
+  });
+
+  it('shadcn: fills every variable the components read, for light and dark', () => {
+    const css = files['shadcn.css']!;
+    const [light, dark] = [css.split(':root {')[1]!.split('}')[0]!, css.split('.dark {')[1]!.split('}')[0]!];
+    for (const block of [light, dark]) {
+      for (const name of ['background', 'foreground', 'primary', 'primary-foreground', 'muted-foreground', 'destructive', 'border', 'input', 'ring', 'chart-1', 'sidebar-accent']) {
+        expect(block).toMatch(new RegExp(`--${name}: oklch\\(`));
+      }
+    }
+    expect(light).toContain('--radius: 0.');
+    expect(css).toContain('@theme inline {');
+    expect(css).toContain('--color-primary-foreground: var(--primary-foreground);');
+    expect(css).toContain('--radius-md: calc(var(--radius) - 2px);');
+    expect(css).toContain('--font-sans: Inter,');
+    expect(css).toContain(':root[data-theme="dark"],');
+    expect(css).not.toMatch(/undefined|NaN|\[object/);
+    expect(css.split('{').length).toBe(css.split('}').length);
+    // Every var() used is declared somewhere in the file.
+    expect(undeclaredVars(css)).toEqual([]);
+  });
+
+  it('shadcn: every foreground meets WCAG AA on the background it is paired with', () => {
+    const css = files['shadcn.css']!;
+    const read = (block: string): Record<string, string> =>
+      Object.fromEntries([...block.matchAll(/--([a-z0-9-]+): (oklch\([^)]+\));/g)].map((m) => [m[1]!, m[2]!]));
+    const modes = { light: read(css.split(':root {')[1]!.split('}')[0]!), dark: read(css.split('.dark {')[1]!.split('}')[0]!) };
+    const pairs: [fg: string, bg: string, min: number][] = [
+      ['foreground', 'background', 4.5],
+      ['card-foreground', 'card', 4.5],
+      ['popover-foreground', 'popover', 4.5],
+      ['primary-foreground', 'primary', 4.5],
+      ['secondary-foreground', 'secondary', 4.5],
+      ['muted-foreground', 'muted', 4.5],
+      ['muted-foreground', 'background', 4.5],
+      ['accent-foreground', 'accent', 4.5],
+      ['destructive-foreground', 'destructive', 4.5],
+      ['sidebar-foreground', 'sidebar', 4.5],
+      ['sidebar-primary-foreground', 'sidebar-primary', 4.5],
+      ['sidebar-accent-foreground', 'sidebar-accent', 4.5],
+      ['ring', 'background', 3],
+      ['input', 'background', 3],
+    ];
+    for (const [mode, vars] of Object.entries(modes)) {
+      for (const [fg, bg, min] of pairs) {
+        expect(wcag(vars[fg]!, vars[bg]!), `${mode}: ${fg} on ${bg}`).toBeGreaterThanOrEqual(min - 0.05);
+      }
+    }
+  });
+
+  it('shadcn: a pill-shaped control does not turn every corner into a pill', () => {
+    const pill = buildSystem({ brandColor: '#4f46e5', radius: 'full' });
+    const css = renderTargets(pill, ['shadcn'])[0]!.content;
+    expect(css).not.toContain('9999px');
+  });
+
+  it('shadcn: light-only systems emit no dark block', () => {
+    const light = buildSystem({ brandColor: '#4f46e5', darkMode: false });
+    const css = renderTargets(light, ['shadcn'])[0]!.content;
+    expect(css).not.toContain('.dark {');
+    expect(css).not.toContain('data-theme="dark"');
   });
 
   it('scss: variables reference each other and semantic colors stay dynamic', () => {
@@ -161,7 +223,7 @@ describe('emitters', () => {
 
   it('keeps a hostile name from closing the header comment', () => {
     const hostile = buildSystem({ name: 'x */ body{display:none} /* --> <b>\n$y: 1;', brandColor: '#4f46e5' });
-    for (const { file, content } of renderTargets(hostile, ['css', 'tailwind', 'scss', 'ts', 'preview', 'design-md'])) {
+    for (const { file, content } of renderTargets(hostile, ['css', 'tailwind', 'shadcn', 'scss', 'ts', 'preview', 'design-md'])) {
       const header = content.split('\n')[file === 'preview.html' || file === 'DESIGN.md' ? 1 : 0]!;
       expect(header, file).toContain('Generated by Kaava for "x  bodydisplaynone  -- by 1"');
     }
