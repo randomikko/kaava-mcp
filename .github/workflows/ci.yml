@@ -30,3 +30,4 @@ jobs:
           node-version: ${{ matrix.node }}
       - run: node dist/index.mjs --version
       - run: node dist/index.mjs init --brand "#4f46e5" --project "$RUNNER_TEMP" && node dist/index.mjs audit --project "$RUNNER_TEMP"
+      - run: node dist/index.mjs emit css tailwind shadcn scss ts dtcg design-md preview --project "$RUNNER_TEMP" && test -s "$RUNNER_TEMP/kaava/shadcn.css" && npx --yes @google/design.md lint "$RUNNER_TEMP/kaava/DESIGN.md"
