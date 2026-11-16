@@ -49,7 +49,7 @@ export const briefShape = {
 export const briefSchema = z.object(briefShape);
 export type Brief = z.infer<typeof briefSchema>;
 
-export const EMIT_TARGETS = ['css', 'tailwind', 'scss', 'ts', 'dtcg', 'design-md', 'preview'] as const;
+export const EMIT_TARGETS = ['css', 'tailwind', 'shadcn', 'scss', 'ts', 'dtcg', 'design-md', 'preview'] as const;
 export type EmitTarget = (typeof EMIT_TARGETS)[number];
 
 export const SYSTEM_VERSION = '0.1';
