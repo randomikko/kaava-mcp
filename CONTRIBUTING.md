@@ -11,7 +11,7 @@ npm install
 npm test
 ```
 
-Node 20 or newer.
+The published server runs on Node 20 or newer. Building it (`npm run build`) needs Node 22.18 or newer.
 
 ## Working on it
 

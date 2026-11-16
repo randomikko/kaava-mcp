@@ -20,5 +20,12 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      # tsdown needs Node 22.18 or newer, so build on 24 and run the result on the matrix version.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - run: npm run build
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
       - run: node dist/index.mjs --version
