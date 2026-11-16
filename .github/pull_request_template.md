@@ -6,4 +6,4 @@
 
 - [ ] `npm test` and `npm run typecheck` pass
 - [ ] Tests cover the change
-- [ ] `CHANGELOG.md` updated
+- [ ] Commit messages follow Conventional Commits (`feat:`, `fix:`, ...); the changelog is generated from them

@@ -1,21 +1,46 @@
 name: Release
 
-# Publishes to npm when a version tag (v0.1.0) is pushed.
-# Requires npm trusted publishing to be configured for this repository on npmjs.com
-# (package settings -> Trusted Publisher -> GitHub Actions, workflow "release.yml").
+# On every push to main, release-please keeps a "release PR" up to date. It works out the next version from the
+# conventional commits since the last release (feat: -> minor, fix: -> patch, feat!: -> major), bumps package.json,
+# package-lock.json and src/version.ts, and writes the CHANGELOG entry. Merging that PR creates the v* tag and a
+# GitHub release, and the publish job below pushes the package to npm.
+#
+# Needs, once:
+#  - npm trusted publishing for this repository (package settings -> Trusted Publisher -> GitHub Actions,
+#    workflow "release.yml"). Keep this file's name.
+#  - Settings -> Actions -> General -> "Allow GitHub Actions to create and approve pull requests".
 on:
   push:
-    tags: ['v*']
-
-permissions:
-  contents: read
-  id-token: write
+    branches: [main]
 
 jobs:
-  publish:
+  release-please:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # Tags created with the default token do not start other workflows, so publishing happens here, not on a tag push.
+  publish:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -23,5 +48,5 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Tag must match package.json version
-        run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+        run: test "v$(node -p "require('./package.json').version")" = "${{ needs.release-please.outputs.tag_name }}"
       - run: npm publish --provenance --access public
