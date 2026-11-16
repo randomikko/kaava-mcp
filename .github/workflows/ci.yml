@@ -29,3 +29,4 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: node dist/index.mjs --version
+      - run: node dist/index.mjs init --brand "#4f46e5" --project "$RUNNER_TEMP" && node dist/index.mjs audit --project "$RUNNER_TEMP"

@@ -57,6 +57,30 @@ What happens:
 3. The agent reads `DESIGN.md` and builds UI from tokens instead of hard-coded values.
 4. Later, "make the corners rounder" or "the dark primary is too dull" becomes a `kaava_update_system` call, and every emitted file is regenerated.
 
+## Command line
+
+The same tools work without an MCP client. Run a command in the project directory:
+
+```sh
+npx kaava-mcp init --brand "#4f46e5" --style friendly
+```
+
+That writes `kaava.json` plus `tokens.css`, `DESIGN.md` and `preview.html` into `kaava/`.
+
+| Command | What it does |
+|---|---|
+| `init --brand <color> [brief options]` | Create the system and write the outputs. `--targets tailwind,design-md` and `--out src/styles` choose what goes where. |
+| `update [brief options] [--set <token>=<value>] [--unset <token>]` | Change the brief or override single tokens. Regenerates the outputs. |
+| `emit <target>...` | Write more outputs: `css`, `tailwind`, `scss`, `ts`, `dtcg`, `design-md`, `preview`. |
+| `tokens [<path>]` | List token groups, or the tokens under a path such as `color` or `font.size`. |
+| `audit` | Accessibility audit. Exits 1 when something fails, so it can gate CI. |
+| `contrast <foreground> <background>` | Check two colors or tokens. Exits 1 when the pair fails. |
+| `styles` | List the available styles. |
+
+Each field of [the brief](#the-brief) has an option: `--style`, `--accent`, `--density`, `--radius`, `--type-scale`, `--neutral-tint`, `--shadows`, `--font-sans`, `--font-mono`, `--font-display`, `--no-dark`. `--project <dir>` works on another directory and `--dry-run` shows what would be written. `npx kaava-mcp --help` lists everything.
+
+Without a command, `kaava-mcp` runs as the MCP server.
+
 ## Tools
 
 | Tool | What it does |
