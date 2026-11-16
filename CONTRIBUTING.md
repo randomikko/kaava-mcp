@@ -48,4 +48,6 @@ claude mcp add kaava-dev -- node /absolute/path/to/kaava-mcp/dist/index.mjs
 
 ## Pull requests
 
-Keep them focused on one thing, describe what changed and why, and add a line to `CHANGELOG.md`. For anything large, open an issue first so we can agree on the direction.
+Keep them focused on one thing and describe what changed and why.
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/): `feat:` for a new capability, `fix:` for a bug fix, `feat!:` or a `BREAKING CHANGE:` footer for a breaking change, and `docs:`, `test:`, `ci:` or `chore:` for the rest. Do not edit the version or `CHANGELOG.md` by hand: release-please reads the commits, opens a release PR that bumps the version and writes the changelog entry, and merging that PR publishes to npm. To reword an entry, edit `CHANGELOG.md` in the release PR before merging it. For anything large, open an issue first so we can agree on the direction.
