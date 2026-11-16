@@ -17,6 +17,39 @@ function undeclaredVars(css: string): string[] {
   return [...new Set([...css.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((m) => m[1]!))].filter((v) => !declared.has(v));
 }
 
+const SHADCN_PAIRS: [fg: string, bg: string, min: number][] = [
+  ['foreground', 'background', 4.5],
+  ['card-foreground', 'card', 4.5],
+  ['popover-foreground', 'popover', 4.5],
+  ['primary-foreground', 'primary', 4.5],
+  ['secondary-foreground', 'secondary', 4.5],
+  ['muted-foreground', 'muted', 4.5],
+  ['muted-foreground', 'background', 4.5],
+  ['accent-foreground', 'accent', 4.5],
+  ['destructive-foreground', 'destructive', 4.5],
+  ['sidebar-foreground', 'sidebar', 4.5],
+  ['sidebar-primary-foreground', 'sidebar-primary', 4.5],
+  ['sidebar-accent-foreground', 'sidebar-accent', 4.5],
+  ['ring', 'background', 3],
+  ['input', 'background', 3],
+];
+
+/** Pairs in shadcn.css that fall short of their WCAG ratio, as `mode: fg on bg (ratio)`. Empty when all pass. */
+function shadcnContrastFailures(css: string): string[] {
+  const read = (block: string): Record<string, string> =>
+    Object.fromEntries([...block.matchAll(/--([a-z0-9-]+): (oklch\([^)]+\));/g)].map((m) => [m[1]!, m[2]!]));
+  const modes: Record<string, Record<string, string>> = { light: read(css.split(':root {')[1]!.split('}')[0]!) };
+  if (css.includes('.dark {')) modes.dark = read(css.split('.dark {')[1]!.split('}')[0]!);
+  const failures: string[] = [];
+  for (const [mode, vars] of Object.entries(modes)) {
+    for (const [fg, bg, min] of SHADCN_PAIRS) {
+      const ratio = wcag(vars[fg]!, vars[bg]!);
+      if (ratio < min - 0.05) failures.push(`${mode}: ${fg} on ${bg} (${ratio.toFixed(2)} < ${min})`);
+    }
+  }
+  return failures;
+}
+
 describe('emitters', () => {
   it('writes one file set per target', () => {
     expect(Object.keys(files).sort()).toEqual(
@@ -80,31 +113,7 @@ describe('emitters', () => {
   });
 
   it('shadcn: every foreground meets WCAG AA on the background it is paired with', () => {
-    const css = files['shadcn.css']!;
-    const read = (block: string): Record<string, string> =>
-      Object.fromEntries([...block.matchAll(/--([a-z0-9-]+): (oklch\([^)]+\));/g)].map((m) => [m[1]!, m[2]!]));
-    const modes = { light: read(css.split(':root {')[1]!.split('}')[0]!), dark: read(css.split('.dark {')[1]!.split('}')[0]!) };
-    const pairs: [fg: string, bg: string, min: number][] = [
-      ['foreground', 'background', 4.5],
-      ['card-foreground', 'card', 4.5],
-      ['popover-foreground', 'popover', 4.5],
-      ['primary-foreground', 'primary', 4.5],
-      ['secondary-foreground', 'secondary', 4.5],
-      ['muted-foreground', 'muted', 4.5],
-      ['muted-foreground', 'background', 4.5],
-      ['accent-foreground', 'accent', 4.5],
-      ['destructive-foreground', 'destructive', 4.5],
-      ['sidebar-foreground', 'sidebar', 4.5],
-      ['sidebar-primary-foreground', 'sidebar-primary', 4.5],
-      ['sidebar-accent-foreground', 'sidebar-accent', 4.5],
-      ['ring', 'background', 3],
-      ['input', 'background', 3],
-    ];
-    for (const [mode, vars] of Object.entries(modes)) {
-      for (const [fg, bg, min] of pairs) {
-        expect(wcag(vars[fg]!, vars[bg]!), `${mode}: ${fg} on ${bg}`).toBeGreaterThanOrEqual(min - 0.05);
-      }
-    }
+    expect(shadcnContrastFailures(files['shadcn.css']!)).toEqual([]);
   });
 
   it('shadcn: a pill-shaped control does not turn every corner into a pill', () => {
@@ -248,4 +257,34 @@ describe('emitters', () => {
     expect(out.find((f) => f.file === 'tokens.css')!.content).not.toContain('prefers-color-scheme');
     expect(out.find((f) => f.file === 'tailwind.css')!.content).not.toContain('prefers-color-scheme');
   });
+
+  describe.each(styles().flatMap((s) => [true, false].map((darkMode) => [s.id, darkMode] as const)))(
+    'style %s (dark mode %s): every target',
+    (style, darkMode) => {
+      const sys = buildSystem({ name: 'Demo', brandColor: '#4f46e5', style: style as StyleId, darkMode });
+      const out = Object.fromEntries(renderTargets(sys, EMIT_TARGETS).map((f) => [f.file, f.content]));
+
+      it('emits every file without unresolved aliases or undefined values', () => {
+        const expected = ['DESIGN.md', '_tokens.scss', 'preview.html', 'shadcn.css', 'tailwind.css', 'tokens.css', 'tokens.json', 'tokens.ts'];
+        expect(Object.keys(out).sort()).toEqual((darkMode ? [...expected, 'tokens.dark.json'] : expected).sort());
+        for (const [file, content] of Object.entries(out)) {
+          if (file.endsWith('.json')) continue;
+          const text = file === 'DESIGN.md' ? content.replace(/"\{(colors|typography|rounded|spacing)\.[^}]+\}"/g, '""') : content;
+          expect(text, file).not.toMatch(/\{[a-z]+\.[a-zA-Z0-9.-]+\}/);
+          expect(text, file).not.toMatch(/undefined|NaN|\[object/);
+        }
+      });
+
+      it('keeps the stylesheets well formed', () => {
+        for (const file of ['tokens.css', 'tailwind.css', 'shadcn.css']) {
+          expect(undeclaredVars(out[file]!), file).toEqual([]);
+          expect(out[file]!.split('{').length, file).toBe(out[file]!.split('}').length);
+        }
+      });
+
+      it('shadcn.css keeps every foreground readable on its background', () => {
+        expect(shadcnContrastFailures(out['shadcn.css']!)).toEqual([]);
+      });
+    },
+  );
 });
