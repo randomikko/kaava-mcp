@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Command line: `kaava-mcp init`, `update`, `emit`, `tokens`, `audit`, `contrast` and `styles` run the tools without an MCP client. `audit` and `contrast` exit 1 on a failure, for use in CI. Without a command, `kaava-mcp` still runs as the MCP server.
+
 ## [0.1.0] - 2026-11-16
 
 First release: generate a design system from a brief and emit it for any stack.
