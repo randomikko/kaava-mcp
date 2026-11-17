@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.1](https://github.com/randomikko/kaava-mcp/compare/v0.2.0...v0.2.1) (2026-11-17)
+
+
+### Miscellaneous Chores
+
+* release 0.2.1 ([f336af2](https://github.com/randomikko/kaava-mcp/commit/f336af2794d32d245beec173bbce621b8681557f))
+
 ## [0.2.0](https://github.com/randomikko/kaava-mcp/compare/v0.1.0...v0.2.0) (2026-11-16)
 
 ### Features
