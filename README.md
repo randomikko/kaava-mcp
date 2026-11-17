@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/kaava-wordmark-dark.svg">
+    <img src="docs/kaava-wordmark-light.svg" alt="Kaava" height="40">
+  </picture>
+</p>
+
 # Kaava
 
 [![npm](https://img.shields.io/npm/v/kaava-mcp)](https://www.npmjs.com/package/kaava-mcp)

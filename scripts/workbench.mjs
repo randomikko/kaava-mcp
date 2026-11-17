@@ -12,6 +12,7 @@ const MAX_BODY = 200_000;
 
 const STATIC = {
   '/': ['workbench/index.html', 'text/html; charset=utf-8'],
+  '/wordmark.svg': ['docs/kaava-wordmark-dark.svg', 'image/svg+xml'],
   '/app.js': ['workbench/app.js', 'text/javascript; charset=utf-8'],
   '/app.css': ['workbench/app.css', 'text/css; charset=utf-8'],
   '/fonts.js': ['workbench/fonts.js', 'text/javascript; charset=utf-8'],
