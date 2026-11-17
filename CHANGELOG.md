@@ -4,13 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [0.2.0](https://github.com/randomikko/kaava-mcp/compare/v0.1.0...v0.2.0) (2026-11-16)
 
-
 ### Features
 
-* command line and shadcn/ui emit target ([aa8fbe8](https://github.com/randomikko/kaava-mcp/commit/aa8fbe86f04e757dad33ef05e95ee310d9d2fa0a))
-* command line for the tools ([44c5fee](https://github.com/randomikko/kaava-mcp/commit/44c5feeb674ca18b6a3ad333acb43d9b02553f7f))
-* command line for the tools ([3b0ee19](https://github.com/randomikko/kaava-mcp/commit/3b0ee19f6af4fcf006d965bdd54dcdd6167acc83))
-* shadcn/ui emit target, and a clearer list of supported systems in the README ([a0ff827](https://github.com/randomikko/kaava-mcp/commit/a0ff8277984cb75bb114af0bfb0c3155402650e4))
+* Command line: `kaava-mcp init`, `update`, `emit`, `tokens`, `audit`, `contrast` and `styles` run the tools without an MCP client. `audit` and `contrast` exit 1 on a failure, for use in CI. Without a command, `kaava-mcp` still runs as the MCP server. ([3b0ee19](https://github.com/randomikko/kaava-mcp/commit/3b0ee19f6af4fcf006d965bdd54dcdd6167acc83))
+* `shadcn` emit target: `shadcn.css` with the theme variables shadcn/ui components read (`:root`, `.dark`, `@theme inline`), filled from Kaava's contrast-checked roles in OKLCH. Every foreground and background pair is tested against WCAG AA in light and dark for all styles. ([a0ff827](https://github.com/randomikko/kaava-mcp/commit/a0ff8277984cb75bb114af0bfb0c3155402650e4))
 
 ## [0.1.0] - 2026-11-16
 
